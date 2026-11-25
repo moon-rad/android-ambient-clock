@@ -44,7 +44,7 @@ body[data-scene=night] #wx{color:#ff9d57;opacity:.4;border-color:rgba(255,157,87
 #gear.on{opacity:.7}
 #panel{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:5}
 #panel[hidden]{display:none}
-.card{width:min(92vw,440px);max-height:88vh;overflow:auto;background:rgba(24,26,38,.92);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px 20px}
+.card{position:relative;width:min(92vw,440px);max-height:88vh;overflow:auto;background:rgba(24,26,38,.92);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px 20px}
 .card h3{margin:14px 0 8px;font-size:13px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;opacity:.65}
 .card h3:first-child{margin-top:0}
 .row{display:flex;flex-wrap:wrap;gap:8px}
@@ -54,6 +54,7 @@ body[data-scene=night] #wx{color:#ff9d57;opacity:.4;border-color:rgba(255,157,87
 input[type=range]{width:100%;margin:6px 0}
 label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px}
 .close{margin-top:16px;width:100%}
+#xClose{position:sticky;top:0;z-index:2;display:block;margin:-8px -10px -28px auto;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:18px;line-height:1;cursor:pointer}
 #coffee{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}
 #coffeeBox{margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:14px;line-height:1.45}
 #coffeeBox[hidden]{display:none}
@@ -78,6 +79,7 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
   <button id="gear" aria-label="Ajustes">⚙</button>
   <div id="panel" hidden>
     <div class="card">
+      <button id="xClose" aria-label="Fechar">✕</button>
       <h3>Cena</h3>
       <div class="row" id="rowScene"></div>
       <h3>Tamanho do relógio <span id="clkLbl">(80%)</span></h3>
@@ -771,7 +773,8 @@ function initNative(n){
 }
 initNative(0);
 $('gear').onclick = e => { e.stopPropagation(); $('panel').hidden = false; };
-$('close').onclick = () => { $('panel').hidden = true; };
+$('close').onclick = e => { e.stopPropagation(); $('panel').hidden = true; };
+$('xClose').onclick = e => { e.stopPropagation(); $('panel').hidden = true; };
 $('coffeeBtn').onclick = () => { const b = $('coffeeBox'); b.hidden = !b.hidden; $('coffeeBtn').setAttribute('aria-expanded', String(!b.hidden)); };
 $('pixCopy').onclick = async () => {
   const key = $('pixKey').textContent.trim(); let ok = false;
@@ -782,11 +785,11 @@ $('pixCopy').onclick = async () => {
   $('pixCopy').textContent = ok ? 'Copiado! ✓' : 'Não deu; segure o texto e copie';
   setTimeout(()=>{ $('pixCopy').textContent = 'Copiar chave Pix'; }, 2500);
 };
-$('panel').onclick = e => { if(e.target===$('panel')) $('panel').hidden = true; };
+$('panel').onclick = e => { e.stopPropagation(); if(e.target===$('panel')) $('panel').hidden = true; };
 
 let first = true;
 $('stage').addEventListener('click', e => {
-  if(!$('panel').hidden || e.target.id==='gear') return;
+  if(!$('panel').hidden || e.target.id==='gear' || (e.target.closest && e.target.closest('#panel'))) return;   /* clicar para fechar o menu não troca de cena */
   if(first){ first=false;
     if(!window.RelogioNative){ try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(()=>{}); }catch(_){} }
     try{ navigator.wakeLock && navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){}
