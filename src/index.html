@@ -54,6 +54,12 @@ body[data-scene=night] #wx{color:#ff9d57;opacity:.4;border-color:rgba(255,157,87
 input[type=range]{width:100%;margin:6px 0}
 label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px}
 .close{margin-top:16px;width:100%}
+#coffee{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}
+#coffeeBox{margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:14px;line-height:1.45}
+#coffeeBox[hidden]{display:none}
+#pixKey{display:block;margin:8px 0 10px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.35);font:13px/1.35 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;-webkit-user-select:text;user-select:text}
+#powered{margin-top:14px;text-align:center;font-size:12px;letter-spacing:.08em;opacity:.5}
+#powered b{font-weight:400;opacity:1;letter-spacing:.14em;text-transform:uppercase}
 </style>
 </head>
 <body data-scene="window">
@@ -82,7 +88,17 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
       <div class="row" id="rowWx"></div>
       <label class="chk"><input type="checkbox" id="dim" checked> Escurecer de madrugada (23h–6h)</label>
       <label class="chk"><input type="checkbox" id="lux" checked> <span id="luxLbl">Brilho automático (sensor de luz)</span></label>
+      <div id="coffee">
+        <button class="chip" id="coffeeBtn" aria-expanded="false">☕ Me pague um café</button>
+        <div id="coffeeBox" hidden>
+          Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!
+          <code id="pixKey">09fd2a9f-a5ff-48df-821a-ab631350c094</code>
+          <button class="chip" id="pixCopy">Copiar chave Pix</button>
+          <div style="margin-top:8px;font-size:12px;opacity:.55">Chave aleatória · Moonrad</div>
+        </div>
+      </div>
       <button class="chip close" id="close">Fechar</button>
+      <div id="powered">Powered by <b>Moonrad</b></div>
     </div>
   </div>
 </div>
@@ -676,6 +692,16 @@ function initNative(n){
 initNative(0);
 $('gear').onclick = e => { e.stopPropagation(); $('panel').hidden = false; };
 $('close').onclick = () => { $('panel').hidden = true; };
+$('coffeeBtn').onclick = () => { const b = $('coffeeBox'); b.hidden = !b.hidden; $('coffeeBtn').setAttribute('aria-expanded', String(!b.hidden)); };
+$('pixCopy').onclick = async () => {
+  const key = $('pixKey').textContent.trim(); let ok = false;
+  try{ await navigator.clipboard.writeText(key); ok = true; }catch(e){}
+  if(!ok){
+    try{ const ta = document.createElement('textarea'); ta.value = key; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); }catch(e){}
+  }
+  $('pixCopy').textContent = ok ? 'Copiado! ✓' : 'Não deu; segure o texto e copie';
+  setTimeout(()=>{ $('pixCopy').textContent = 'Copiar chave Pix'; }, 2500);
+};
 $('panel').onclick = e => { if(e.target===$('panel')) $('panel').hidden = true; };
 
 let first = true;
