@@ -398,11 +398,13 @@ function drawPixel(dt){
 const dk = (c,f) => [c[0]*f, c[1]*f, c[2]*f];
 /* ---------- Gatinho: dorme, mas de vez em quando faz alguma coisa ---------- */
 const CAT = {act:'sleep', t0:0, dur:0, next:20};
-const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, stretch:4.5, watch:26, walk:18};
+const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, bocejo:2.6, stretch:4.5, lavar:9, watch:22, walk:31};
+const CAT_MUG = 31;   /* onde o gato para ao lado da caneca (x da frente do corpo) */
+const catWalkOK = () => PW-40-CAT_MUG >= 10;   /* sem espaço na mesa (tela estreita): não passeia */
 function catPick(){
   const m = minutesNow(), wet = WX.kind==='rain'||WX.kind==='storm', calm = m<330;
-  const w = {tail:18, ear:12, eye:wet?20:6, stretch:calm?8:20, watch:wet?24:14, walk:calm?4:18};
-  if(PW-40-48 < 10) w.walk = 0;   /* sem espaço na mesa (tela estreita) */
+  const w = {tail:18, ear:12, eye:wet?20:6, bocejo:calm?10:8, stretch:calm?8:18, lavar:calm?3:10, watch:wet?24:14, walk:calm?3:12};
+  if(!catWalkOK()){ w.walk = 0; }
   let r = Math.random()*Object.values(w).reduce((a,b)=>a+b,0);
   for(const k in w){ r -= w[k]; if(r<=0) return k; }
   return 'tail';
@@ -410,15 +412,30 @@ function catPick(){
 function catStart(act){ CAT.act = act; CAT.t0 = TT; CAT.dur = CAT_DUR[act]||0; }
 function catUpdate(){
   if(CAT.act==='sleep'){ if(TT>=CAT.next) catStart(catPick()); }
-  else if(TT-CAT.t0>=CAT.dur){ CAT.act='sleep'; CAT.next = TT + (minutesNow()<330 ? 100+Math.random()*120 : 40+Math.random()*80); }
+  else if(TT-CAT.t0>=CAT.dur){
+    if(CAT.act==='watch' && catWalkOK() && Math.random()<.8){ catStart('walk'); return; }   /* sentado, olha a janela e depois vai à caneca */
+    CAT.act='sleep'; CAT.next = TT + (minutesNow()<330 ? 100+Math.random()*120 : 40+Math.random()*80);
+  }
 }
 function drawCat(c,dy,lum){
   catUpdate();
   const a = CAT.act, t = TT-CAT.t0, cx0 = PW-40;
   const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum));
-  const eyeC = 'rgb(150,210,90)', pink = 'rgb(240,150,160)';
+  const eyeC = 'rgb(22,16,16)', pink = 'rgb(240,150,160)';   /* olhos: pontinhos pretos */
   let ox = cx0, fl = false;
   const F = (col,x,y,w,h) => { c.fillStyle = col; c.fillRect(fl ? ox+16-x-w : ox+x, y, w, h); };
+  /* gato sentado (de lado, virado para a esquerda): hd = cabeça baixa, paw = lavando o rosto */
+  const sit = (hd,paw,ty) => {
+    F(fur,4,dy-7,5,1); F(fur,3,dy-6,7,5); F(fur,3,dy-1,7,1);          /* anca redonda */
+    F(fur,2,dy-11,5,6);                                                  /* peito */
+    if(!paw){ F(fur,1,dy-6,2,6); F(fur,0,dy-1,3,1); }                    /* perna da frente esticada */
+    const hy = dy-16+hd;
+    F(fur,0,hy,6,5); F(fur,0,hy-2,1,2); F(fur,4,hy-2,1,2);               /* cabeça e orelhas */
+    F(eyeC,1,hy+2,1,1); F(eyeC,4,hy+2,1,1); F(pink,2,hy+3,2,1);
+    F(fur2,6,dy-10,1,3); F(fur2,7,dy-5,1,3);
+    F(fur,10,dy-3,3,2); F(fur,12,dy-6+ty,1,4);                           /* rabo */
+    if(paw){ const up = Math.round(Math.sin(t*6)); F(fur,-1,hy+3+up,2,3); F(fur,-1,dy-1,3,1); }
+  };
   let zzz = false;
   if(a==='stretch'){
     const e = Math.min(1, Math.sin(Math.PI*clamp(t/CAT.dur,0,1))*1.6);
@@ -430,23 +447,27 @@ function drawCat(c,dy,lum){
     if(e>.5){ F(fur2,-3-k,dy-4+k2,2,1); }   /* olhinho apertado */
   } else if(a==='watch'){
     ox = cx0+2;
-    const ty = Math.round(Math.sin(t*2.5)), bob = Math.round(Math.sin(t*.7)*.6);
-    F(fur,0,dy-5,9,5); F(fur,1,dy-10,6,6); F(fur,0,dy-15+bob,6,5);
-    F(fur,0,dy-17+bob,1,2); F(fur,4,dy-17+bob,1,2);
-    F(eyeC,1,dy-13+bob,1,1); F(eyeC,3,dy-13+bob,1,1); F(pink,0,dy-12+bob,1,1);
-    F(fur2,3,dy-9,1,3); F(fur,9,dy-2,4,2); F(fur,12,dy-4+ty,1,3);
+    sit(Math.round(Math.sin(t*.7)*.6)+1, false, Math.round(Math.sin(t*2.5)));
+  } else if(a==='lavar'){
+    ox = cx0+2;
+    sit(1+(Math.sin(t*6)>0?1:0), true, Math.round(Math.sin(t*2)));
   } else if(a==='walk'){
-    const D = cx0-48; let p, moving = true;
-    if(t<7) p = t/7; else if(t<10){ p = 1; moving = false; } else if(t<17) p = 1-(t-10)/7; else { p = 0; moving = false; }
-    fl = t>=10;
+    const D = cx0-CAT_MUG; let p = 0, moving = false, mode = 'walk';
+    if(t<11){ p = t/11; moving = true; }
+    else if(t<19){ p = 1; mode = 'sit'; }
+    else if(t<30){ p = 1-(t-19)/11; moving = true; fl = true; }
     ox = cx0 - Math.round(p*D);
-    const st = moving ? Math.floor(t*6)%2 : 0, hd = (t>=7&&t<10) ? 2 : 0, sw = Math.round(Math.sin(t*5));
-    F(fur,3,dy-9,12,4);
-    F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
-    F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
-    F(fur,-2,dy-11+hd,5,5); F(fur,-2,dy-13+hd,1,2); F(fur,2,dy-13+hd,1,2);
-    F(nose,-1,dy-9+hd,1,1); F(pink,-2,dy-8+hd,1,1);
-    F(fur,15,dy-10,2,2); F(fur,16+sw,dy-14,1,5);
+    if(mode==='sit'){
+      sit(Math.floor(t*.8)%2===0 ? 2 : 1, false, Math.round(Math.sin(t*3)));
+    } else {
+      const st = moving ? Math.floor(t*6)%2 : 0, sw = Math.round(Math.sin(t*3));
+      F(fur,3,dy-9,12,4);
+      F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
+      F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
+      F(fur,-2,dy-11,5,5); F(fur,-2,dy-13,1,2); F(fur,2,dy-13,1,2);
+      F(eyeC,-1,dy-9,1,1); F(eyeC,1,dy-9,1,1); F(pink,-2,dy-8,1,1);
+      F(fur,15,dy-10,2,2); F(fur,16+sw,dy-17,1,8); F(fur2,16+sw+1,dy-18,1,1);   /* rabo erguido */
+    }
   } else {
     const br = Math.round((Math.sin(TT*1.7)+1)/2);
     F(fur,0,dy-5,14,5); F(fur,1,dy-6-br,12,1+br);
@@ -458,9 +479,10 @@ function drawCat(c,dy,lum){
     const ty = a==='tail' ? Math.round(Math.sin(t*7)*1.6) : 0;
     F(fur,16,dy-5+ty,1,3); if(ty!==0) F(fur,17,dy-4+ty,1,2);
     F(fur2,4,dy-6-br,1,2+br); F(fur2,8,dy-6-br,1,2+br);
-    F(nose,-2,dy-4,2,1); F(pink,-3,dy-3,1,1);
+    if(a==='bocejo' && t>.3 && t<CAT.dur-.3){ F('rgb(190,70,90)',-3,dy-4,2,2); }   /* boca aberta */
+    else { F(nose,-2,dy-4,2,1); F(pink,-3,dy-3,1,1); }
     if(a==='eye' && t>.5 && t<CAT.dur-.9){ F(eyeC,-2,dy-5,1,1); }
-    else zzz = true;
+    else if(a!=='bocejo') zzz = true;
   }
   if(zzz){
     const zt = (TT*1.6)%6;
