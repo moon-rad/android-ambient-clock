@@ -912,16 +912,16 @@ function drawLofi(dt){
     else { c.fillStyle = rgb(dk([210,70,70],lum)); c.fillRect(ix+2,dy-5,2,5); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(ix+2,dy-7-(Math.sin(TT*9)>.3?1:0),2,2); c.fillStyle = 'rgba(255,210,130,.12)'; disc(c,ix+3,dy-6,6); }
   }
   // arvorezinha de Natal (à direita da pilha de livros, do tamanho do abajur)
-  if(xmasOn() && PW-40 > 62){
-    const tx = 48, cxm = tx+4, g1 = rgb(dk([40,126,74],lum)), g2 = rgb(dk([28,98,58],lum));
+  if(xmasOn() && PW-40 > 56){
+    const wide = PW-40 > 70, tx = 47, cxm = tx+4, g1 = rgb(dk([40,126,74],lum)), g2 = rgb(dk([28,98,58],lum));
     c.fillStyle = rgb(dk([96,62,40],lum)); c.fillRect(cxm-1,dy-2,3,2);
     const tier = [[3,9],[4,7],[5,5],[6,7],[7,5],[8,3],[9,5],[10,3],[11,1]];
     tier.forEach(([h,w],i)=>{ c.fillStyle = i%3===0 ? g2 : g1; c.fillRect(cxm-Math.floor(w/2),dy-h,w,1); });
     const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]], L = [[cxm-3,dy-3],[cxm+3,dy-3],[cxm-1,dy-5],[cxm+1,dy-5],[cxm-2,dy-7],[cxm+2,dy-7],[cxm,dy-9]];
     L.forEach(([lx,ly],i)=>{ const lit = Math.floor(TT*1.6+i*.55)%2===0; c.fillStyle = rgb(lc[i%4], lit?1:.3); c.fillRect(lx,ly,1,1); });
     const sp = .7+.3*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cxm,dy-14,1,1); c.fillRect(cxm-1,dy-13,3,1); c.fillRect(cxm,dy-12,1,1);
-    c.fillStyle = rgb(dk([210,60,60],lum)); c.fillRect(tx-3,dy-3,3,3); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(tx-2,dy-3,1,3); c.fillRect(tx-3,dy-2,3,1);
-    c.fillStyle = rgb(dk([70,120,210],lum)); c.fillRect(tx+9,dy-2,3,2);
+    if(wide){ c.fillStyle = rgb(dk([210,60,60],lum)); c.fillRect(tx-3,dy-3,3,3); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(tx-2,dy-3,1,3); c.fillRect(tx-3,dy-2,3,1);
+      c.fillStyle = rgb(dk([70,120,210],lum)); c.fillRect(tx+9,dy-2,3,2); }
     if(P.d<.65){ c.fillStyle = `rgba(255,200,120,${.07*(1-P.d)})`; disc(c,cxm,dy-6,8); }
   }
   // livros
