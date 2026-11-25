@@ -504,13 +504,11 @@ function wcGeom(D,act){
   return {xs, hxd, sg, xj, W: Math.abs(hxd-xj)/12};
 }
 const wcDur = (act,D) => (act==='gatoJanela' ? 28 : 28.5) + 3.2 + wcGeom(D,act).W + 1;
-function gcat(c,cx,by,D,pose,t,fur,fur2){
-  const R = (x,y,w,h,col) => { const X = Math.round(x*ANI), Y = Math.round(y*ANI), W = Math.max(1,Math.round(w*ANI)), H = Math.max(1,Math.round(h*ANI)); c.fillStyle = col; c.fillRect(D>0 ? Math.round(cx+X) : Math.round(cx-X-W), Math.round(by+Y), W, H); };
-  const sw = Math.round(Math.sin(t*4)), eye = 'rgb(22,16,16)';
-  if(pose==='walk'){ const st = Math.floor(t*4)%2; R(0,-4,7,3,fur); R(6,-6,3,3,fur); R(6,-7,1,1,fur); R(8,-7,1,1,fur); R(8,-5,1,1,eye); R(-1+sw,-7,1,4,fur); R(1,-1,1,1+st,fur); R(5,-1,1,2-st,fur); }
-  else if(pose==='crouch'){ const wg = Math.round(Math.sin(t*14)); R(0,-3,8,3,fur); R(-1,-4+wg,2,2,fur); R(7,-5,3,3,fur); R(7,-6,1,1,fur); R(9,-6,1,1,fur); R(9,-4,1,1,eye); R(-3+sw,-3,3,1,fur); }
-  else if(pose==='jump'){ R(0,-3,8,2,fur); R(8,-4,3,3,fur); R(8,-5,1,1,fur); R(10,-5,1,1,fur); R(10,-3,1,1,eye); R(10,-1,2,1,fur); R(-2,-2,2,1,fur); R(-5,-4,3,1,fur); }
-  else { const hx = pose==='dazed' ? Math.round(Math.sin(t*8)) : 0; R(1,-6,4,6,fur); R(1+hx,-9,4,3,fur); R(1+hx,-10,1,1,fur); R(4+hx,-10,1,1,fur); R(2+hx,-8,1,1,eye); R(5,-2,3,1,fur); R(5,-3+sw,1,2,fur); }
+let WCL = 1;   /* luminosidade da cena, para o gato do lo-fi na grama */
+function gcat(c,cx,by,D,pose,t){
+  const s = .8, ox = Math.round(cx-8*s);
+  if(pose==='dazed') drawCat(c,by,WCL,{act:'sitpose',t,ox,fl:D>0,s,o:{hd:1+(Math.sin(t*8)>0?1:0)}});
+  else drawCat(c,by,WCL,{act:'walkpose',t:pose==='jump'?0:t,ox,fl:D>0,s});
 }
 /* gato visto de costas, sentado no peitoril, olhando a paisagem */
 function sillBack(c,x,by,fur,fur2,t,tw,ear,squat){
@@ -546,7 +544,7 @@ function peek(c,x,ys,t,slip,fur,fur2){
 function windowCat(c,P,layer,nearY){
   const A = WILD.act; if(A!=='gatoJanela' && A!=='gatoPula') return;
   const t = TT-WILD.t0, D = WILD.dir, G = wcGeom(D,A), lum = .5+.5*P.d, col = (r,g,b) => rgb([r*lum,g*lum,b*lum]);
-  const fur = col(214,140,70), fur2 = col(160,92,42), ys = PH-6;
+  WCL = lum; const fur = col(214,140,70), fur2 = col(160,92,42), ys = PH-6;
   const gy = x => clamp(nearY(Math.round(clamp(x,0,PW-1)))+2,0,PH-9);
   const win = (t0,a,b) => t>=t0+a && t<t0+b;
   const back = (t0,swishes,ears) => {   /* de costas olhando a paisagem */
@@ -559,20 +557,19 @@ function windowCat(c,P,layer,nearY){
     if(s<.7){ if(layer==='sill') sillBack(c,G.xs-5,ys,fur,fur2,t,.6,0,true); return; }
     if(s<3.2 || layer!=='grass') return;
     const w = s-3.2, x = G.xj+G.sg*4+G.sg*Math.min(w*12,G.W*12), fade = Math.min(clamp(w/.4,0,1), clamp(1-(w-G.W)/1,0,1));
-    c.globalAlpha = fade; gcat(c,x,gy(x),G.sg,'walk',t,fur,fur2); c.globalAlpha = 1;
+    c.globalAlpha = fade; gcat(c,x,gy(x),G.sg,'walk',t); c.globalAlpha = 1;
   };
   if(A==='gatoJanela'){
-    if(t<6){ if(layer!=='sill') return; const u = t/6, x = (D>0 ? -14 : PW+14)+(G.xs-(D>0 ? -14 : PW+14))*u, st = Math.floor(t*5)%2, sw = Math.round(Math.sin(t*3));
-      const R = (xx,yy,w,h,cl) => { const a = Math.round(xx*SK), b = Math.round((xx+w)*SK), y0 = Math.round(yy*SK), y1 = Math.round((yy+h)*SK); c.fillStyle = cl; c.fillRect(D>0 ? Math.round(x+a) : Math.round(x-b), ys+y0, Math.max(1,b-a), Math.max(1,y1-y0)); };
-      R(0,-6,9,3,fur); R(8,-9,4,4,fur); R(8,-10,1,1,fur); R(11,-10,1,1,fur); R(10,-8,1,1,'rgb(22,16,16)'); R(-1+sw,-12,1,6,fur); R(1,-3,1,3-st,fur); R(3,-3,1,2+st,fur); R(6,-3,1,2+st,fur); R(8,-3,1,3-st,fur); }
+    if(t<6){ if(layer!=='sill') return; const u = t/6, x = (D>0 ? -14 : PW+14)+(G.xs-(D>0 ? -14 : PW+14))*u, s = 1.5;
+      drawCat(c,ys,lum,{act:'walkpose',t,ox:Math.round(x-8*s),fl:D>0,s}); }
     else if(t<7){ if(layer==='sill'){ const x = G.xs; sillBack(c,x-5,ys,fur,fur2,t,.6,0); } }
     else if(t<28) back(7,[[3,5],[9,11.5],[16,18]],[[6,6.4,1],[13.5,13.9,2]]);
     else exit(28);
   } else {
     if(t<7){ if(layer==='sill'){ const tt = t, rise = 1-clamp(tt/1.2,0,1), fall = clamp((tt-4.6)/2.2,0,1); peek(c,G.xs-4,ys,tt,Math.max(rise,fall),fur,fur2); } }   /* sobe pendurado, se segura, escorrega */
     else if(t<9.5){ /* caiu: fora de vista */ }
-    else if(t<13.5){ if(layer==='grass') gcat(c,G.xs,gy(G.xs),D,'dazed',t,fur,fur2); }
-    else if(t<14.7){ if(layer==='sill'){ const u = (t-13.5)/1.2, y = gy(G.xs)+(ys-gy(G.xs))*u-Math.sin(u*Math.PI)*10; gcat(c,G.xs,y,D,'jump',t,fur,fur2); } }
+    else if(t<13.5){ if(layer==='grass') gcat(c,G.xs,gy(G.xs),D,'dazed',t); }
+    else if(t<14.7){ if(layer==='sill'){ const u = (t-13.5)/1.2, y = gy(G.xs)+(ys-gy(G.xs))*u-Math.sin(u*Math.PI)*10; gcat(c,G.xs,y,D,'jump',t); } }
     else if(t<28.5) back(14.7,[[3,5],[9,11.5]],[[7,7.4,1]]);
     else exit(28.5);
   }
@@ -681,13 +678,16 @@ function catUpdate(){
   }
 }
 const blinkAt = (t,period,off) => (t+off)%period > period-.16;   /* pisca por 0,16 s a cada "period" segundos */
-function drawCat(c,dy,lum){
-  catUpdate();
-  const a = CAT.act, t = TT-CAT.t0, cx0 = PW-40;
+function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras cenas {act,t,ox,fl,s,o,dur} */
+  if(!ov) catUpdate();
+  const a = ov ? ov.act : CAT.act, t = ov ? ov.t : TT-CAT.t0, cx0 = ov ? ov.ox : PW-40, S = ov ? (ov.s||1) : 1, DUR = ov ? (ov.dur||30) : CAT.dur;
   const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk([238,210,170],lum));
   const eyeC = 'rgb(22,16,16)', pink = rgb(dk([240,150,160],lum)), tongueC = rgb(dk([236,96,124],lum));   /* olhos: pontinhos pretos */
-  let ox = cx0, fl = false;
-  const F = (col,x,y,w,h) => { c.fillStyle = col; c.fillRect(fl ? ox+16-x-w : ox+x, y, w, h); };
+  let ox = cx0, fl = ov ? !!ov.fl : false;
+  const F = (col,x,y,w,h) => { const q = fl ? 16-x-w : x; c.fillStyle = col;
+    if(S===1){ c.fillRect(ox+q,y,w,h); return; }
+    const x0 = Math.round(q*S), x1 = Math.round((q+w)*S), y0 = Math.round((y-dy)*S), y1 = Math.round((y-dy+h)*S);
+    c.fillRect(ox+x0,dy+y0,Math.max(1,x1-x0),Math.max(1,y1-y0)); };
   /* gato sentado (de lado, virado para a esquerda).
      o: hd cabeça (0 alta … 4 baixa), closed olhos fechados, tongue língua, paw pata no rosto (pawUp sobe/desce),
         swat pata esticada (0..1), lift pulo, ta/tw amplitude e velocidade do rabo */
@@ -706,9 +706,19 @@ function drawCat(c,dy,lum){
     if(o.paw){ const up = o.pawUp||0; F(fur,-1,hy+3+up,2,3); F(bib,-1,hy+3+up,2,1); F(fur,-1,y-1,3,1); }
     if(o.swat>0){ const e = o.swat, L = Math.round(4*e)+2, hh = hy+1-Math.round(2*e); F(fur,-1-Math.round(4*e),hh,L,2); F(bib,-1-Math.round(4*e),hh,1,2); }
   };
+  const walkS = (st,sw) => {
+    F(fur,3,dy-9,12,4);
+    F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
+    F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
+    F(fur,-2,dy-11,5,5); F(fur,-2,dy-13,1,2); F(fur,2,dy-13,1,2);
+    F(eyeC,-1,dy-9,1,1); F(eyeC,1,dy-9,1,1); F(pink,-2,dy-8,1,1);
+    F(fur,15,dy-10,2,2); F(fur,16+sw,dy-17,1,8); F(fur2,16+sw+1,dy-18,1,1);   /* rabo erguido */
+  };
   let zzz = false;
-  if(a==='stretch'){
-    const e = Math.min(1, Math.sin(Math.PI*clamp(t/CAT.dur,0,1))*1.6);
+  if(a==='sitpose'){ sit(ov.o||{}); }
+  else if(a==='walkpose'){ walkS(Math.floor(t*6)%2, Math.round(Math.sin(t*3))); }
+  else if(a==='stretch'){
+    const e = Math.min(1, Math.sin(Math.PI*clamp(t/DUR,0,1))*1.6);
     const k = Math.round(3*e), k2 = Math.round(e), up = Math.round(4*e), fh = 5-Math.round(2*e);
     F(fur,0,dy-fh,7,fh); F(fur,7,dy-5-up,7,5+up);
     F(fur,-3-k,dy-6+k2,5,5-k2); F(fur,-3-k,dy-8+k2,1,2); F(fur,1-k,dy-8+k2,1,2);
@@ -759,13 +769,7 @@ function drawCat(c,dy,lum){
     if(mode==='sit'){
       sit({hd:Math.floor(t*.8)%2===0 ? 2 : 1, closed:blinkAt(t,4.3,.7), ta:1.2, tw:3});
     } else {
-      const st = moving ? Math.floor(t*6)%2 : 0, sw = Math.round(Math.sin(t*3));
-      F(fur,3,dy-9,12,4);
-      F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
-      F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
-      F(fur,-2,dy-11,5,5); F(fur,-2,dy-13,1,2); F(fur,2,dy-13,1,2);
-      F(eyeC,-1,dy-9,1,1); F(eyeC,1,dy-9,1,1); F(pink,-2,dy-8,1,1);
-      F(fur,15,dy-10,2,2); F(fur,16+sw,dy-17,1,8); F(fur2,16+sw+1,dy-18,1,1);   /* rabo erguido */
+      walkS(moving ? Math.floor(t*6)%2 : 0, Math.round(Math.sin(t*3)));
     }
   } else {
     const br = Math.round((Math.sin(TT*1.7)+1)/2);
@@ -778,9 +782,9 @@ function drawCat(c,dy,lum){
     const ty = a==='tail' ? Math.round(Math.sin(t*7)*1.6) : 0;
     F(fur,16,dy-5+ty,1,3); if(ty!==0) F(fur,17,dy-4+ty,1,2);
     F(fur2,4,dy-6-br,1,2+br); F(fur2,8,dy-6-br,1,2+br);
-    if(a==='bocejo' && t>.3 && t<CAT.dur-.3){ F('rgb(190,70,90)',-3,dy-4,2,2); }   /* boca aberta */
+    if(a==='bocejo' && t>.3 && t<DUR-.3){ F('rgb(190,70,90)',-3,dy-4,2,2); }   /* boca aberta */
     else { F(nose,-2,dy-4,2,1); }
-    if(a==='eye' && t>.5 && t<CAT.dur-.9){ F(eyeC,-2,dy-5,1,1); }
+    if(a==='eye' && t>.5 && t<DUR-.9){ F(eyeC,-2,dy-5,1,1); }
     else if(a!=='bocejo') zzz = true;
   }
   if(zzz){
@@ -980,20 +984,20 @@ function drawSala(dt){
   snowFall(c,SN1,dt,wx,wy,ww,wh,Math.max(8,Math.round(ww*wh/110)),.9);
   R(wx+Math.floor(ww/2)-1,wy,2,wh,wood); R(wx,wy+Math.round(wh*.55),ww,2,wood); R(wx-4,wy+wh+2,ww+8,2,woodL);
   /* árvore */
-  const cx = land ? Math.round(PW*.2) : 22, tb = dy+3, H = Math.min(46,dy-14), ty = tb-H;
-  if(P.d<.7){ c.fillStyle = `rgba(255,200,120,${.05*(1-P.d)})`; disc(c,cx,tb-Math.round(H*.45),26); }
+  const cx = land ? Math.round(PW*.2) : 24, tb = dy+3, H = Math.min(66,dy-14), ty = tb-H, sc = H/46;
+  if(P.d<.7){ c.fillStyle = `rgba(255,200,120,${.05*(1-P.d)})`; disc(c,cx,tb-Math.round(H*.45),Math.round(26*sc)); }
   R(cx-2,tb-4,4,4,C(96,62,40));
   const g1 = C(34,120,70), g2 = C(24,92,54), g3 = C(48,142,84);
   for(let i=0;i<H-4;i++){ const w = 3+(i%10)+Math.floor(i/10)*3; R(cx-Math.floor(w/2),ty+3+i,w,1,(i%10<2)?g3:(i%10>6?g2:g1)); }
   const orn = [[-2,10,[230,60,60]],[3,15,[250,200,70]],[-6,21,[90,150,240]],[5,25,[240,120,190]],[-1,29,[230,60,60]],[7,34,[250,200,70]],[-8,36,[90,150,240]],[1,39,[240,120,190]],[-4,16,[250,200,70]]];
-  for(const [ox,oy,col] of orn){ R(cx+ox,ty+oy,2,2,rgb(col)); R(cx+ox,ty+oy,1,1,'rgba(255,255,255,.75)'); }
+  for(const [ox,oy,col] of orn){ const px2 = cx+Math.round(ox*sc), py2 = ty+Math.round(oy*sc); R(px2,py2,2,2,rgb(col)); R(px2,py2,1,1,'rgba(255,255,255,.75)'); }
   const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]];
   for(let k=0;k<16;k++){ const ly = 4+Math.floor(hr(k)*(H-10)), w = 3+(ly%10)+Math.floor(ly/10)*3, lx = cx+Math.round((hr(k+20)-.5)*w*.85), lit = Math.floor(TT*1.6+k*.7)%2===0;
     R(lx,ty+3+ly,1,1,rgb(lc[k%4],lit?1:.3)); if(lit){ c.fillStyle = rgb(lc[k%4],.14); c.fillRect(lx-1,ty+3+ly-1,3,3); } }
   const sp = .65+.35*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cx,ty-1,1,4); c.fillRect(cx-1,ty,3,1); c.fillRect(cx-2,ty+1,5,1);
   /* presentes */
   const gift = (x,w,h,col,rib) => { R(x,tb-h,w,h,rgb(dk(col,lum))); R(x+Math.floor(w/2),tb-h,1,h,rib); R(x,tb-Math.ceil(h/2),w,1,rib); R(x+Math.floor(w/2)-1,tb-h-1,3,1,rib); };
-  gift(cx-17,7,6,[200,50,50],gold); gift(cx+11,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-9,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+5,5,4,[150,90,200],gold);
+  gift(cx-19,7,6,[200,50,50],gold); gift(cx+13,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-11,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+7,5,4,[150,90,200],gold);
   /* lareira */
   const fw = 30, fh = 28, fx = land ? PW-fw-Math.round(PW*.12) : PW-fw-5, fb = dy+2;
   R(fx,fb-fh,fw,fh,C(128,58,48));
@@ -1009,33 +1013,26 @@ function drawSala(dt){
   c.fillStyle = `rgba(255,150,60,${.06+.02*Math.sin(TT*7)})`; disc(c,fx+Math.round(fw/2),fb-8,30); c.fillStyle = `rgba(255,170,70,${.07+.02*Math.sin(TT*9)})`; disc(c,fx+Math.round(fw/2),fb-8,18);
   R(fx-3,fb-fh-5,fw+6,2,C(36,110,64));
   for(let i=0;i<8;i++) R(fx-2+i*5,fb-fh-5,1,1,rgb(lc[i%4],Math.floor(TT*1.6+i*.8)%2===0?1:.3));
+  const my = fb-fh-5;   /* enfeites em cima da lareira */
+  { const cdl = (x,h) => { R(x,my-h,2,h,C(244,236,214)); const fl = Math.floor(TT*8+x)%3; R(x,my-h-2,2,2,'rgb(255,208,90)'); if(fl===0) R(x,my-h-3,1,1,'rgb(255,150,60)'); c.fillStyle = 'rgba(255,200,100,.12)'; disc(c,x+1,my-h-1,4); };
+    cdl(fx-1,7); cdl(fx+fw-1,9);
+    R(fx+6,my-8,1,1,'rgb(255,226,110)'); for(let k=0;k<7;k++){ const w = 1+Math.floor(k*.8); R(fx+6-Math.floor(w/2)+(w%2?0:0),my-7+k,w,1,k%3?C(34,120,70):C(24,92,54)); } R(fx+5,my,3,1,C(96,62,40));   /* arvorezinha */
+    const sx = fx+13; R(sx,my-3,4,3,C(246,250,255)); R(sx,my-6,3,3,C(246,250,255)); R(sx-1,my-8,5,1,C(30,30,40)); R(sx,my-9,3,1,C(30,30,40)); R(sx+1,my-5,1,1,'rgb(20,20,30)'); R(sx+3,my-5,2,1,'rgb(240,130,40)'); R(sx,my-3,4,1,C(210,50,50));   /* boneco de neve */
+    R(fx+20,my-4,5,4,C(210,60,60)); R(fx+22,my-4,1,4,'rgb(240,200,90)'); R(fx+20,my-2,5,1,'rgb(240,200,90)'); R(fx+21,my-5,3,1,'rgb(240,200,90)');   /* presentinho */
+    R(fx+27,my-3,3,3,'rgb(226,60,60)'); R(fx+27,my-3,1,1,'rgba(255,255,255,.8)'); R(fx+28,my-4,1,1,'rgb(240,200,90)'); }   /* bolinha */
   const sock = [[210,50,50],[50,140,80],[70,110,210]];
   sock.forEach((col,i)=>{ const sx = fx+3+i*10; R(sx,fb-fh+1,4,2,'rgb(244,244,244)'); R(sx,fb-fh+3,4,6,rgb(dk(col,lum))); R(sx-2,fb-fh+8,6,3,rgb(dk(col,lum))); R(sx-2,fb-fh+10,2,1,'rgb(244,244,244)'); });
   /* tapete e gato */
-  const catx = Math.round((cx+13+fx)/2), cf = dy+6, ox = catx-8;
+  const catx = Math.round((cx+19+fx)/2), cf = dy+6, ox = catx-8;
   R(catx-17,dy+3,35,5,C(150,48,56)); R(catx-17,dy+3,35,1,gold); R(catx-17,dy+7,35,1,gold);
   if(SALA.t0===null) SALA.t0 = TT;
   if(TT-SALA.t0 > SALA.dur){ const [na,nd] = SALA_NEXT[SALA.act]; SALA.act = na; SALA.dur = nd; SALA.t0 = TT; }
-  const t = TT-SALA.t0, O = C(222,146,72), D = C(164,94,44), K = C(126,70,36), CR = C(244,218,178), PK = rgb(dk([240,150,160],lum));
-  const F2 = (s,x,y,w,h) => R(ox+x,cf+y,w,h,s);
-  if(SALA.act==='sleep'){
-    const br = Math.round((Math.sin(TT*1.7)+1)/2);
-    F2(O,0,-5,15,5); F2(O,1,-6-br,13,1+br); F2(K,0,-1,15,1);
-    F2(D,4,-6-br,1,3+br); F2(D,8,-6-br,1,3+br); F2(D,11,-6-br,1,3+br);
-    F2(O,-4,-6,6,6); F2(O,-4,-8,2,2); F2(O,0,-8,2,2); F2(D,-2,-6,2,1); F2(CR,-4,-2,3,2); F2(D,-3,-4,2,1);
-    const tw = Math.round(Math.sin(TT*.9)*1.4); F2(O,15,-3,4,2); F2(O,18,-5+tw,1,3);
-    const zt = (TT*1.6)%6; c.fillStyle = `rgba(255,255,255,${.75*(1-zt/6)})`; const zx = Math.round(ox-3+zt*.8), zy = Math.round(cf-9-zt*1.6); c.fillRect(zx,zy,3,1); c.fillRect(zx+1,zy+1,1,1); c.fillRect(zx,zy+2,3,1);
-  } else {
-    /* sentado olhando as luzes / brincando com a bolinha */
-    const play = SALA.act==='play', blink = (TT%4.2)<.15, sh = play ? 0 : (Math.floor(t*.5)%2 ? 1 : 0), ph = Math.sin(t*3.3), bx = ox-8-Math.round(8*Math.abs(Math.sin(t*1.1))), by = cf-2-(play ? Math.round(Math.abs(ph)*5) : 0);
-    const e = blink ? 'd' : 'e', rows = [".o......o.",".oo....oo.","oooooooooo","ooodoodooo","oooooooooo","ooooppoooo","occcccccco",".oooooooo.","..coooooo.","..cooooood","..cooooooo","..ccoooook","...kkkkkk."];
-    rows[4] = play ? "oooooooooo" : "oooooooooo";
-    GRID(c,rows,ox-1,cf-13,{o:O,d:D,k:K,c:CR,p:PK});
-    const ey = cf-13+4, e1 = ox-1+2-sh+(play&&bx<ox-12?-1:0), e2 = ox-1+7-sh+(play&&bx<ox-12?-1:0);
-    R(e1,ey,1,1,blink?D:'rgb(22,16,16)'); R(e2,ey,1,1,blink?D:'rgb(22,16,16)');
-    const sw = Math.round(Math.sin(TT*(play?6:1.6))*(play?2:1)); F2(O,10,-3,3,2); for(let i=0;i<5;i++) F2(i>3?D:O,12+Math.round(sw*(i+1)/5),-4-i,2,1);
-    if(play){ if(ph>.6){ F2(O,-4,-4,4,2); F2(CR,-4,-4,2,2); } else { F2(O,-1,-3,2,3); } 
-      R(bx,by-2,3,3,'rgb(226,60,60)'); R(bx,by-2,1,1,'rgba(255,255,255,.85)'); R(bx+1,by-3,1,1,gold); }
+  const t = TT-SALA.t0, s = 1.25, cox = Math.round(catx-8*s), play = SALA.act==='play';
+  if(SALA.act==='sleep') drawCat(c,cf,Math.max(lum,.92),{act:(t%14<1.2?'ear':t%19<1.6?'tail':'sleep'),t,ox:cox,s,dur:3});
+  else {
+    const blink = (TT%4.2)<.15, ph = Math.sin(t*3.3), bx = cox-3-Math.round(5*Math.abs(Math.sin(t*1.1))), by = cf-2-(play ? Math.round(Math.abs(ph)*5) : 0);
+    drawCat(c,cf,Math.max(lum,.92),{act:'sitpose',t,ox:cox,s,o:play ? {hd:1+(ph>0?1:0),closed:false,ta:2.2,tw:7,swat:ph>.6?ph:0} : {hd:Math.floor(t*.5)%2?0:1,closed:blink,ta:1,tw:1.6}});
+    if(play){ R(bx,by-2,3,3,'rgb(226,60,60)'); R(bx,by-2,1,1,'rgba(255,255,255,.85)'); R(bx+1,by-3,1,1,gold); }
   }
 }
 
@@ -1065,7 +1062,10 @@ function drawVila(dt){
     R(cxh-2,by-6,4,6,C(110,60,40)); R(cxh-1,by-5,2,2,C(40,120,70)); R(cxh,by-5,1,1,'rgb(230,60,60)');
     for(const wxx of [hx+3,hx+hw-7]){ const lit = night; R(wxx,by-hh+3,4,4,lit?`rgba(255,${200+Math.round(14*Math.sin(TT*3+wxx))},110,1)`:C(150,190,220)); R(wxx+1,by-hh+3,1,4,C(...wall)); R(wxx,by-hh+4,4,1,C(...wall));
       if(lit){ c.fillStyle = 'rgba(255,200,100,.07)'; disc(c,wxx+2,by-hh+5,4); } }
-    for(let x=hx;x<hx+hw;x+=3){ const lit = Math.floor(TT*1.5+x*.3)%2===0; R(x,by-hh+1+((x-hx)%6===0?1:0),1,1,rgb(lc[(x>>1)%4],lit?1:.35)); }
+    for(let x=hx-1;x<hx+hw+2;x+=2){ const lit = Math.floor(TT*1.6+x*.45)%2===0, col = lc[(x>>1)%4]; R(x,by-hh+1+((x-hx)%4===0?1:0),1,1,rgb(col,lit?1:.3)); if(lit){ c.fillStyle = rgb(col,.16); c.fillRect(x-1,by-hh+((x-hx)%4===0?1:0),3,3); } }
+    for(let k=1;k<rh;k+=2){ const w = Math.min(hw+4,2*k+3), yy = by-hh-rh+k, lit = Math.floor(TT*1.6+k*.8)%2===0, col = lc[(k+1)%4], col2 = lc[(k+3)%4], lit2 = Math.floor(TT*1.6+k*.8+1)%2===0;
+      R(cxh-Math.floor(w/2),yy,1,1,rgb(col,lit?1:.3)); R(cxh+Math.floor(w/2),yy,1,1,rgb(col2,lit2?1:.3)); }
+    for(let k=0;k<5;k++){ const lit = Math.floor(TT*1.6+k)%2===0; R(cxh-3,by-7+k,1,1,rgb(lc[k%4],lit?1:.3)); R(cxh+3,by-7+k,1,1,rgb(lc[(k+2)%4],lit?.3:1)); }
   }
   for(let i=SMOKE.length-1;i>=0;i--){ const s = SMOKE[i]; s.y -= 5*dt; s.x += Math.sin(TT*1.5+s.p)*.2; s.a -= .22*dt; if(s.a<=0){ SMOKE.splice(i,1); continue; } c.fillStyle = `rgba(232,232,244,${s.a})`; c.fillRect(Math.round(s.x),Math.round(s.y),2,2); }
   const pine = (tx,tb,h) => { R(tx,tb-2,1,2,C(90,60,40)); for(let k=0;k<h;k++){ const w = 1+Math.floor(k*.9)*1+ (k>3?0:0); const ww = Math.min(11,1+k); R(tx-Math.floor(ww/2),tb-2-h+k,ww,1,(k%4===3)?C(228,236,250):C(30,98,60)); } };
@@ -1077,7 +1077,11 @@ function drawVila(dt){
   R(rcx-Math.round(rw*.25),rcy-2,Math.round(rw*.2),1,C(200,230,248)); R(rcx+Math.round(rw*.05),rcy+3,Math.round(rw*.18),1,C(200,230,248));
   const skater = (a,col,hat) => { const sx = Math.round(rcx+Math.cos(a)*(rw/2-7)), sy = Math.round(rcy+Math.sin(a)*(rh-3)); R(sx-1,sy-7,3,1,hat); R(sx-1,sy-6,3,2,'rgb(240,200,170)'); R(sx-1,sy-4,3,3,col); R(sx-1,sy-1,1,2,'rgb(40,40,60)'); R(sx+1,sy-1,1,2,'rgb(40,40,60)'); };
   const sk = [[TT*.5,C(200,50,60),'rgb(230,50,50)'],[-TT*.42+2.4,C(60,100,200),'rgb(240,240,240)']].map(([a,col,hat])=>({a,col,hat,y:Math.sin(a)})).sort((p,q)=>p.y-q.y);
-  sk.forEach(s=>skater(s.a,s.col,s.hat));
+  const sled = (sx,sy,dir,col,hat) => { const f = dir>0 ? 1 : -1;
+    R(sx-4,sy,9,1,'rgb(110,70,40)'); R(f>0?sx+4:sx-5,sy-1,1,1,'rgb(110,70,40)'); R(sx-3,sy-1,7,1,'rgb(190,60,50)');
+    R(sx-1,sy-4,3,3,col); R(sx-1,sy-6,3,2,'rgb(240,200,170)'); R(sx-1,sy-7,3,1,hat); R(sx-1+f*2,sy-3,1,1,'rgb(240,200,170)'); R(sx-f*3,sy-2,1,2,col); };
+  const sl = [{a:TT*.55,off:-3,col:C(60,150,90),hat:'rgb(240,200,60)'},{a:TT*.4+2.2,off:3,col:C(210,90,150),hat:'rgb(70,110,210)'}].map(o=>({x:Math.round(rcx+Math.sin(o.a)*(rw/2-9)),y:rcy+o.off,dir:Math.cos(o.a),col:o.col,hat:o.hat}));
+  sk.forEach(s=>skater(s.a,s.col,s.hat)); sl.forEach(s=>sled(s.x,s.y,s.dir,s.col,s.hat));
   /* coral */
   const cb = hb+Math.round((PH-hb)*.8), cxs = land ? Math.round(PW*.18) : Math.round(PW*.24), coats = [[200,50,50],[50,140,80],[70,110,210],[220,170,50]];
   coats.forEach((col,i)=>{ const x = cxs+i*6-9, h = 6+(i%2), open = Math.floor(TT*3+i*1.3)%2===0;
