@@ -4,22 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Relógio ambiente — protótipo</title>
+<meta name="relogio-build" content="dev">
+<script>
+/* Atualização pela web: se esta versão (baixada do GitHub Pages) não iniciar bem em 5 s,
+   descarta o download e o app volta para a versão embutida no APK. */
+if(window.__fromCache){
+  setTimeout(function(){
+    try{
+      if(window.__relogioOk){ localStorage.setItem('relogio.remote.tries','0'); }
+      else { localStorage.removeItem('relogio.remote.html'); localStorage.setItem('relogio.remote.tries','0'); location.reload(); }
+    }catch(e){}
+  }, 5000);
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&family=Nunito:wght@200;300&display=swap" rel="stylesheet">
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #stage{position:fixed;inset:0;transition:filter 1.5s;overflow:hidden}
 canvas{position:absolute;left:0;top:0;display:block}
-#cvAurora{width:100%;height:100%}
+#cvAurora,#cvNight{width:100%;height:100%}
 #cvPixel{image-rendering:pixelated}
 #clock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 2px 26px rgba(0,0,0,.35);transition:transform 3s ease}
-#time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:min(30vw,46vh);font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,1));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 #date{font-size:13px;font-weight:300;opacity:.85;margin-top:.6em}
 #wx{font-size:min(4vw,5.8vh);font-weight:300;margin-top:.7em;padding:.2em .85em;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,.28);opacity:.8;white-space:nowrap}
 #wx small{opacity:.6;font-size:.7em;margin-left:.5em}
 body[data-scene=night] #time{color:#ff9d57;opacity:.55;text-shadow:none}
 body[data-scene=night] #date{color:#ff9d57;opacity:.4}
 body[data-scene=night] #wx{color:#ff9d57;opacity:.4;border-color:rgba(255,157,87,.3)}
-body[data-scene=lofi] #clock{justify-content:flex-start;padding-top:3vh;box-sizing:border-box}
 #hint{position:absolute;left:0;right:0;bottom:max(14px,3vh);text-align:center;font-size:14px;letter-spacing:.12em;text-transform:uppercase;opacity:0;transition:opacity .5s;pointer-events:none;text-shadow:0 1px 8px rgba(0,0,0,.6)}
 #hint.on{opacity:.8}
 #gear{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.28);color:#fff;font-size:22px;opacity:0;transition:opacity .6s;cursor:pointer}
@@ -41,6 +53,7 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
 <body data-scene="window">
 <div id="stage">
   <canvas id="cvAurora"></canvas>
+  <canvas id="cvNight"></canvas>
   <canvas id="cvPixel"></canvas>
   <div id="clock">
     <div id="time"><span id="hh">00</span><span id="col">:</span><span id="mm">00</span></div>
@@ -53,6 +66,8 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
     <div class="card">
       <h3>Cena</h3>
       <div class="row" id="rowScene"></div>
+      <h3>Tamanho do relógio <span id="clkLbl">(100%)</span></h3>
+      <input type="range" id="clk" min="60" max="140" step="5" value="100">
       <h3>Hora de teste <span id="simLbl"></span></h3>
       <input type="range" id="sim" min="0" max="1439" value="720">
       <div class="row"><button class="chip" id="simNow">Hora real</button></div>
@@ -261,7 +276,7 @@ function drawLofi(dt){
   const c = px; TT += dt;
   const m = minutesNow(), P = phase(m), B = bodies(m), K = KINDS[WX.kind];
   c.globalAlpha = 1;
-  const dy = Math.round(PH*.84), lum = .55+.45*P.d;
+  const dy = Math.round(PH*.88), lum = .55+.45*P.d;
   const wood = dk([118,78,48],lum), woodL = dk([150,104,66],lum);
   // parede
   let wall = mixC([30,26,48],[108,88,112],P.d*.85); wall = mixC(wall,[150,96,96],P.g*.25);
@@ -417,6 +432,54 @@ function drawAurora(dt){
   }
 }
 
+/* ---------- Cena: Noturno (céu estrelado dinâmico) ---------- */
+const cvNight = $('cvNight'), nc = cvNight.getContext('2d');
+let NDPR = 1, NSTARS = [], NT = 0, SHOOT = null, nextShoot = 20;
+function sizeNight(){
+  NDPR = Math.min(devicePixelRatio||1, 2);
+  cvNight.width = Math.round(innerWidth*NDPR); cvNight.height = Math.round(innerHeight*NDPR);
+  const R = Math.hypot(cvNight.width,cvNight.height)/2, r = rng(11);
+  const n = Math.round(innerWidth*innerHeight/1500);
+  NSTARS = Array.from({length:n},()=>{
+    const big = r()>.85;
+    return { d: Math.sqrt(r())*R, a: r()*Math.PI*2, r: (big ? 1.9 : .8+r()*.7)*NDPR, sp: .35+r()*.75, ph: r()*6.28, k: r(), mx: .65+r()*.35 };
+  });
+}
+function drawNight(dt){
+  NT += dt;
+  const c = nc, W = cvNight.width, H = cvNight.height, cx = W/2, cy = H/2;
+  c.fillStyle = '#02030a'; c.fillRect(0,0,W,H);
+  const rot = NT*.004; /* o céu gira bem devagar */
+  for(const s of NSTARS){
+    const ang = s.a+rot, x = cx+Math.cos(ang)*s.d, y = cy+Math.sin(ang)*s.d;
+    if(x<-6||y<-6||x>W+6||y>H+6) continue;
+    const t = .5+.5*Math.sin(s.ph+NT*s.sp);          /* acende e apaga suavemente */
+    const al = Math.pow(t,2)*s.mx+.06;
+    const col = s.k<.2 ? '255,214,170' : s.k>.75 ? '176,200,255' : '240,244,255';
+    c.fillStyle = `rgba(${col},${al.toFixed(3)})`;
+    c.beginPath(); c.arc(x,y,s.r,0,6.283); c.fill();
+    if(al>.6 && s.r>1.1*NDPR){ c.fillStyle = `rgba(${col},${(al*.14).toFixed(3)})`; c.beginPath(); c.arc(x,y,s.r*3.4,0,6.283); c.fill(); }
+  }
+  /* estrela cadente, rara */
+  nextShoot -= dt;
+  if(!SHOOT && nextShoot<=0){
+    const a = (.15+Math.random()*.35)*Math.PI;
+    SHOOT = { x:Math.random()*W*.8+W*.1, y:Math.random()*H*.4, vx:Math.cos(a)*W*.9*(Math.random()<.5?1:-1), vy:Math.sin(a)*W*.5, t:0 };
+    nextShoot = 25+Math.random()*40;
+  }
+  if(SHOOT){
+    SHOOT.t += dt; const T = .9;
+    if(SHOOT.t>T){ SHOOT = null; }
+    else {
+      const p = SHOOT.t/T, x = SHOOT.x+SHOOT.vx*p*.4, y = SHOOT.y+SHOOT.vy*p*.4, fade = Math.sin(p*Math.PI);
+      const g = c.createLinearGradient(x,y,x-SHOOT.vx*.06,y-SHOOT.vy*.06);
+      g.addColorStop(0,`rgba(255,255,255,${.7*fade})`); g.addColorStop(1,'rgba(255,255,255,0)');
+      c.strokeStyle = g; c.lineWidth = 1.4*NDPR; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x,y); c.lineTo(x-SHOOT.vx*.06,y-SHOOT.vy*.06); c.stroke();
+    }
+  }
+}
+
 /* ---------- Relógio ---------- */
 let lastDate = '';
 function tickClock(){
@@ -455,6 +518,7 @@ function setScene(s, announce){
   scene = s; document.body.dataset.scene = s;
   $('cvPixel').style.display = (s==='window'||s==='lofi') ? 'block' : 'none';
   $('cvAurora').style.display = s==='aurora' ? 'block' : 'none';
+  $('cvNight').style.display = s==='night' ? 'block' : 'none';
   if(s==='aurora'){ au.fillStyle='#000'; au.fillRect(0,0,cvAu.width,cvAu.height); }
   document.querySelectorAll('#rowScene .chip').forEach(b=>b.classList.toggle('sel',b.dataset.s===s));
   try{ localStorage.setItem('scene',s); }catch(e){}
@@ -467,13 +531,18 @@ $('sim').oninput = e => { SIM = +e.target.value; $('simLbl').textContent = `(${S
 $('simNow').onclick = () => { SIM = null; $('simLbl').textContent = '(real)'; tickClock(); };
 $('dim').onchange = tickClock;
 $('lux').onchange = tickClock;
-if(window.RelogioNative){
-  /* dentro do APK: o brilho real da tela é controlado pelo sensor de luz do aparelho */
-  $('lux').disabled = false;
-  $('luxLbl').textContent = 'Brilho automático (sensor de luz do aparelho)';
-  $('lux').onchange = () => { try{ RelogioNative.setAutoBrightness($('lux').checked); }catch(e){} };
-  try{ RelogioNative.setAutoBrightness($('lux').checked); }catch(e){}
-} else if(!('AmbientLightSensor' in window)){ $('lux').disabled = true; $('luxLbl').textContent = 'Brilho automático (indisponível neste navegador; entra no APK)'; }
+const IS_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+function initNative(n){
+  if(window.RelogioNative){
+    /* dentro do APK: o brilho real da tela é controlado pelo sensor de luz do aparelho */
+    $('lux').disabled = false;
+    $('luxLbl').textContent = 'Brilho automático (sensor de luz do aparelho)';
+    $('lux').onchange = () => { try{ RelogioNative.setAutoBrightness($('lux').checked); }catch(e){} };
+    try{ RelogioNative.setAutoBrightness($('lux').checked); }catch(e){}
+  } else if(IS_NATIVE && n<20){ setTimeout(()=>initNative(n+1), 500); }
+  else if(!('AmbientLightSensor' in window)){ $('lux').disabled = true; $('luxLbl').textContent = 'Brilho automático (indisponível neste navegador; entra no APK)'; }
+}
+initNative(0);
 $('gear').onclick = e => { e.stopPropagation(); $('panel').hidden = false; };
 $('close').onclick = () => { $('panel').hidden = true; };
 $('panel').onclick = e => { if(e.target===$('panel')) $('panel').hidden = true; };
@@ -493,20 +562,44 @@ $('stage').addEventListener('click', e => {
 setInterval(()=>{ $('clock').style.transform = `translate(${Math.round((Math.random()-.5)*16)}px,${Math.round((Math.random()-.5)*16)}px)`; }, 60000);
 
 /* ---------- Loop ---------- */
-let last = performance.now(), accP = 0, accA = 0, accC = 0;
+let last = performance.now(), accP = 0, accA = 0, accN = 0, accC = 0;
 function frame(ts){
   const dt = Math.min(.1,(ts-last)/1000); last = ts;
   accC += dt; if(accC>=.5){ accC=0; tickClock(); }
   if(scene==='window'||scene==='lofi'){ accP += dt; if(accP>=1/12){ (scene==='window'?drawPixel:drawLofi)(accP); accP=0; } }
   else if(scene==='aurora'){ accA += dt; if(accA>=1/30){ drawAurora(accA); accA=0; } }
+  else if(scene==='night'){ accN += dt; if(accN>=1/24){ drawNight(accN); accN=0; } }
   requestAnimationFrame(frame);
 }
-function resize(){ sizePixel(); sizeAurora(); }
+function resize(){ sizePixel(); sizeAurora(); sizeNight(); }
+/* tamanho do relógio (guardado no aparelho) */
+function setClk(v){ document.documentElement.style.setProperty('--clk', v/100); $('clkLbl').textContent = `(${v}%)`; try{ localStorage.setItem('clk', v); }catch(e){} }
+$('clk').oninput = e => setClk(+e.target.value);
+try{ const v = +localStorage.getItem('clk'); if(v>=60 && v<=140){ $('clk').value = v; setClk(v); } }catch(e){}
 addEventListener('resize', resize);
 resize(); setScene(scene,false); updateWx(); tickClock(); showGear();
 $('simLbl').textContent = '(real)';
 loadWeather(); setInterval(loadWeather, 15*60*1000);
 requestAnimationFrame(frame);
+window.__relogioOk = true; /* sinal de que a página iniciou sem erros */
+
+/* ---------- Atualização pela web (só no app) ---------- */
+const REMOTE_URL = 'https://moon-rad.github.io/android-ambient-clock/index.html';
+async function checkUpdate(){
+  if(!IS_NATIVE) return;
+  try{
+    const r = await fetch(REMOTE_URL+'?t='+Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    const t = await r.text();
+    const rv = (t.match(/name="relogio-build" content="([^"]+)"/)||[])[1];
+    const cur = (document.querySelector('meta[name="relogio-build"]')||{}).content;
+    if(!rv || !cur || t.length<5000 || !t.includes('__relogioOk') || !(rv>cur)) return;
+    localStorage.setItem('relogio.remote.html', t);
+    localStorage.setItem('relogio.remote.tries', '0');
+    setTimeout(()=>location.replace('index.html'), 3000); /* volta pela porta de entrada, que abre a versão baixada */
+  }catch(e){}
+}
+if(IS_NATIVE){ setTimeout(checkUpdate, 8000); setInterval(checkUpdate, 6*3600*1000); }
 </script>
 </body>
 </html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relógio</title>
+<style>html,body{margin:0;height:100%;background:#000}</style>
+<script>
+/* Porta de entrada do app: abre a versão baixada do GitHub Pages (se houver e estiver saudável)
+   ou a versão embutida no APK (app.html). */
+(function(){
+  var KEY = 'relogio.remote.html', TRY = 'relogio.remote.tries';
+  try{
+    var cached = localStorage.getItem(KEY), tries = +localStorage.getItem(TRY) || 0;
+    if(cached){
+      if(tries >= 2){ localStorage.removeItem(KEY); localStorage.setItem(TRY, '0'); }
+      else {
+        localStorage.setItem(TRY, String(tries + 1));
+        window.addEventListener('load', function(){
+          window.__fromCache = true;
+          document.open(); document.write(cached); document.close();
+        });
+        return;
+      }
+    }
+  }catch(e){}
+  location.replace('app.html');
+})();
+</script>
+</head>
+<body></body>
+</html>
