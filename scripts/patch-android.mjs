@@ -158,4 +158,13 @@ const styles = `<?xml version="1.0" encoding="utf-8"?>
 </resources>
 `;
 fs.writeFileSync(path.join(root, 'android/app/src/main/res/values/styles.xml'), styles);
+/* permissão de localização (para "Usar minha localização" no menu) */
+const manifestPath = path.join(root, 'android/app/src/main/AndroidManifest.xml');
+let manifest = fs.readFileSync(manifestPath, 'utf8');
+for (const perm of ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION']) {
+  if (!manifest.includes('android.permission.' + perm)) {
+    manifest = manifest.replace('<application', `<uses-permission android:name="android.permission.${perm}" />\n    <application`);
+  }
+}
+fs.writeFileSync(manifestPath, manifest);
 console.log('Android patch aplicado em', javaDir);
