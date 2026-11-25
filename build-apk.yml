@@ -1,0 +1,62 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Montar a pasta www (página + fontes)
+        run: npm run prepare-web
+
+      - name: Gerar o projeto Android
+        run: npx cap add android
+
+      - name: Aplicar ajustes nativos
+        run: node scripts/patch-android.mjs
+
+      - name: Sincronizar
+        run: npx cap sync android
+
+      - name: Compilar o APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Nomear o APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk relogio-ambiente.apk
+
+      - name: Publicar como Release (para baixar direto no celular)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Relógio #${{ github.run_number }}
+          files: relogio-ambiente.apk
+          make_latest: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relogio-ambiente-apk
+          path: relogio-ambiente.apk
