@@ -57,6 +57,7 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
 #xClose{position:sticky;top:0;z-index:2;display:block;margin:-8px -10px -28px auto;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:18px;line-height:1;cursor:pointer}
 #coffee{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}
 #coffee,#loc{margin-top:14px}
+#lang{margin-top:6px}
 #loc{padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}
 #coffeeBox,#locBox{margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:14px;line-height:1.45}
 #coffeeBox[hidden],#locBox[hidden],#locStateRow[hidden]{display:none}
@@ -109,6 +110,7 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
           <div id="locMsg"></div>
         </div>
       </div>
+      <div id="lang"><h3 id="langH">Idioma</h3><div class="row" id="rowLang"></div></div>
       <div id="coffee">
         <button class="chip" id="coffeeBtn" aria-expanded="false">☕ Me pague um café</button>
         <div id="coffeeBox" hidden>
@@ -126,10 +128,43 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
 
 <script>
 /* ---------- Configuração ---------- */
-const CFG = { lat: -23.6597, lon: -52.6053, city: 'Cianorte' };
+const CFG = { lat: -23.6597, lon: -52.6053, city: 'Cianorte', gps: false };
+const cityName = () => CFG.gps ? tr('mygps') : CFG.city;
 /* local escolhido pela pessoa (guardado no aparelho) */
-try{ const s = JSON.parse(localStorage.getItem('relogio.loc')||'null'); if(s && isFinite(s.lat) && isFinite(s.lon)){ CFG.lat = +s.lat; CFG.lon = +s.lon; CFG.city = String(s.name||'Meu local'); } }catch(e){}
-const SCENES = [['window','Janela'],['lofi','Lo-fi'],['aurora','Aurora'],['night','Noturno']];
+try{ const s = JSON.parse(localStorage.getItem('relogio.loc')||'null'); if(s && isFinite(s.lat) && isFinite(s.lon)){ CFG.lat = +s.lat; CFG.lon = +s.lon; CFG.city = String(s.name||'Meu local'); CFG.gps = !!s.gps; } }catch(e){}
+/* ---------- Idioma: segue o aparelho (pt → português; qualquer outro → inglês) ---------- */
+const T = {
+  pt:{ title:'Relógio ambiente', settings:'Ajustes', close:'Fechar', scene:'Cena', clock:'Tamanho do relógio', test:'Hora de teste', realTime:'Hora real', real:'real',
+    weather:'Clima', live:'ao vivo', demoMode:'demo — sem internet no preview', demo:'demo', dim:'Escurecer de madrugada (23h–6h)',
+    lux_def:'Brilho automático (sensor de luz)', lux_native:'Brilho automático (sensor de luz do aparelho)', lux_na:'Brilho automático (indisponível neste navegador; entra no APK)',
+    locBtn:'📍 Localização:', gps:'📡 Usar minha localização', country:'País', city:'Cidade', cityPh:'Digite o nome da cidade', state:'Estado', allStates:'Todos os estados',
+    mygps:'Minha localização', gpsNone:'Este aparelho não oferece localização aqui.', gpsSearch:'Buscando sua localização…', gpsOk:'Pronto: usando a localização do aparelho (aproximada).',
+    gpsDenied:'Permissão negada. Libere a localização nas permissões do app e tente de novo.', gpsFail:'Não consegui obter a localização.',
+    noCity:'Nenhuma cidade encontrada. Confira o país e o nome.', searching:'Buscando…', offline:'Sem internet para buscar cidades agora.', picked:'Pronto: agora mostrando ',
+    language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
+    sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno',
+    wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade',
+    rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt' },
+  en:{ title:'Ambient clock', settings:'Settings', close:'Close', scene:'Scene', clock:'Clock size', test:'Test time', realTime:'Real time', real:'real',
+    weather:'Weather', live:'live', demoMode:'demo — no internet in preview', demo:'demo', dim:'Dim at night (11 PM–6 AM)',
+    lux_def:'Auto brightness (light sensor)', lux_native:'Auto brightness (device light sensor)', lux_na:'Auto brightness (not available in this browser; included in the APK)',
+    locBtn:'📍 Location:', gps:'📡 Use my location', country:'Country', city:'City', cityPh:'Type a city name', state:'State / region', allStates:'All states / regions',
+    mygps:'My location', gpsNone:'This device does not offer location here.', gpsSearch:'Finding your location…', gpsOk:'Done: using the device location (approximate).',
+    gpsDenied:'Permission denied. Allow location in the app permissions and try again.', gpsFail:'Could not get the location.',
+    noCity:'No city found. Check the country and the name.', searching:'Searching…', offline:'No internet to search cities right now.', picked:'Done: now showing ',
+    language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, a coffee via Pix (Brazil) is welcome. Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
+    sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night',
+    wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm',
+    rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en' }
+};
+let LANGPREF = 'auto', LANG = 'pt';
+try{ LANGPREF = localStorage.getItem('relogio.lang') || 'auto'; }catch(e){}
+function resolveLang(){ LANG = (LANGPREF==='pt'||LANGPREF==='en') ? LANGPREF : (/^pt/i.test(navigator.language||'') ? 'pt' : 'en'); }
+resolveLang();
+const tr = k => T[LANG][k];
+let luxKey = 'lux_def';
+const SCENES = [['window'],['lofi'],['aurora'],['night']];
+const sceneName = k => tr('sc_'+k);
 
 /* ---------- Utilidades ---------- */
 const $ = id => document.getElementById(id);
@@ -194,10 +229,10 @@ async function loadWeather(){
 }
 function updateWx(){
   const k = KINDS[WX.kind];
-  let s = `${k.e} ${WX.temp}° · ${k.n}`;
-  if(WX.live && WX.rainIn!==null && WX.kind!=='rain' && WX.kind!=='storm') s += WX.rainIn===0 ? ' · chuva chegando' : ` · chuva em ~${WX.rainIn}h`;
-  $('wx').innerHTML = s + (WX.live ? '' : '<small>demo</small>');
-  $('wxMode').textContent = WX.live ? '(ao vivo · '+CFG.city+')' : '(demo — sem internet no preview)';
+  let s = `${k.e} ${WX.temp}° · ${tr('wx_'+WX.kind)}`;
+  if(WX.live && WX.rainIn!==null && WX.kind!=='rain' && WX.kind!=='storm') s += WX.rainIn===0 ? ' · '+tr('rainSoon') : ' · '+tr('rainIn')(WX.rainIn);
+  $('wx').innerHTML = s + (WX.live ? '' : '<small>'+tr('demo')+'</small>');
+  $('wxMode').textContent = WX.live ? '('+tr('live')+' · '+cityName()+')' : '('+tr('demoMode')+')';
   document.querySelectorAll('#rowWx .chip').forEach(b => { b.classList.toggle('sel', b.dataset.k===WX.kind); b.disabled = WX.live; });
 }
 
@@ -739,7 +774,7 @@ function tickClock(){
   $('hh').textContent = String(H).padStart(2,'0');
   $('mm').textContent = String(M).padStart(2,'0');
   $('col').style.opacity = (d.getSeconds()%2===0) ? 1 : .25;
-  const ds = d.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  const ds = d.toLocaleDateString(tr('dateLoc'),{weekday:'long',day:'numeric',month:'long'});
   if(ds!==lastDate){ lastDate=ds; $('date').textContent = ds.charAt(0).toUpperCase()+ds.slice(1); }
   const late = (H*60+M)>=23*60 || (H*60+M)<6*60;
   let br = ($('dim').checked && late) ? .5 : 1;
@@ -771,13 +806,17 @@ function setScene(s, announce){
   if(s==='aurora'){ au.fillStyle='#000'; au.fillRect(0,0,cvAu.width,cvAu.height); }
   document.querySelectorAll('#rowScene .chip').forEach(b=>b.classList.toggle('sel',b.dataset.s===s));
   try{ localStorage.setItem('scene',s); }catch(e){}
-  if(announce) showHint(SCENES.find(x=>x[0]===s)[1]);
+  if(announce) showHint(sceneName(s));
 }
-SCENES.forEach(([k,n])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.s=k; b.textContent=n; b.onclick=()=>setScene(k,false); $('rowScene').appendChild(b); });
-Object.entries(KINDS).forEach(([k,v])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.k=k; b.textContent=v.e+' '+v.n; b.onclick=()=>{ WX={kind:k,temp:v.t,live:false,rainIn:null}; updateWx(); }; $('rowWx').appendChild(b); });
+function buildChips(){
+  $('rowScene').textContent = ''; $('rowWx').textContent = '';
+  SCENES.forEach(([k])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.s=k; b.textContent=sceneName(k); b.onclick=()=>setScene(k,false); $('rowScene').appendChild(b); });
+  Object.entries(KINDS).forEach(([k,v])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.k=k; b.textContent=v.e+' '+tr('wx_'+k); b.onclick=()=>{ WX={kind:k,temp:v.t,live:false,rainIn:null}; updateWx(); }; $('rowWx').appendChild(b); });
+}
+buildChips();
 
 $('sim').oninput = e => { SIM = +e.target.value; $('simLbl').textContent = `(${String(Math.floor(SIM/60)).padStart(2,'0')}:${String(SIM%60).padStart(2,'0')})`; tickClock(); };
-$('simNow').onclick = () => { SIM = null; $('simLbl').textContent = '(real)'; tickClock(); };
+$('simNow').onclick = () => { SIM = null; $('simLbl').textContent = '('+tr('real')+')'; tickClock(); };
 $('dim').onchange = tickClock;
 $('lux').onchange = tickClock;
 const IS_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -785,11 +824,11 @@ function initNative(n){
   if(window.RelogioNative){
     /* dentro do APK: o brilho real da tela é controlado pelo sensor de luz do aparelho */
     $('lux').disabled = false;
-    $('luxLbl').textContent = 'Brilho automático (sensor de luz do aparelho)';
+    luxKey = 'lux_native'; $('luxLbl').textContent = tr(luxKey);
     $('lux').onchange = () => { try{ RelogioNative.setAutoBrightness($('lux').checked); }catch(e){} };
     try{ RelogioNative.setAutoBrightness($('lux').checked); }catch(e){}
   } else if(IS_NATIVE && n<20){ setTimeout(()=>initNative(n+1), 500); }
-  else if(!('AmbientLightSensor' in window)){ $('lux').disabled = true; $('luxLbl').textContent = 'Brilho automático (indisponível neste navegador; entra no APK)'; }
+  else if(!('AmbientLightSensor' in window)){ $('lux').disabled = true; luxKey = 'lux_na'; $('luxLbl').textContent = tr(luxKey); }
 }
 initNative(0);
 $('gear').onclick = e => { e.stopPropagation(); $('panel').hidden = false; };
@@ -798,28 +837,29 @@ $('gear').onclick = e => { e.stopPropagation(); $('panel').hidden = false; };
 const CC = 'AF AX AL DZ AS AD AO AI AQ AG AR AM AW AU AT AZ BS BH BD BB BY BE BZ BJ BM BT BO BA BW BR IO VG BN BG BF BI KH CM CA CV BQ KY CF TD CL CN CX CC CO KM CG CD CK CR CI HR CU CW CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FK FO FJ FI FR GF PF GA GM GE DE GH GI GR GL GD GP GU GT GG GN GW GY HT HN HK HU IS IN ID IR IQ IE IM IL IT JM JP JE JO KZ KE KI XK KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MQ MR MU YT MX FM MD MC MN ME MS MA MZ MM NA NR NP NL NC NZ NI NE NG NU NF KP MK MP NO OM PK PW PS PA PG PY PE PH PN PL PT PR QA RE RO RU RW WS SM ST SA SN RS SC SL SG SX SK SI SB SO ZA KR SS ES LK BL SH KN LC MF PM VC SD SR SJ SE CH SY TW TJ TZ TH TL TG TK TO TT TN TR TM TC TV UG UA AE GB US UY VI UZ VU VA VE VN WF EH YE ZM ZW'.split(' ');
 let locCC = 'BR';
 try{ const s = JSON.parse(localStorage.getItem('relogio.loc')||'null'); if(s && s.cc) locCC = s.cc; }catch(e){}
-(function fillCountries(){
-  let nm; try{ nm = new Intl.DisplayNames(['pt-BR'],{type:'region'}); }catch(e){ nm = {of:c=>c}; }
-  const list = CC.map(c => { let n = c; try{ n = nm.of(c)||c; }catch(e){} return [c,n]; }).sort((a,b)=>a[1].localeCompare(b[1],'pt'));
-  const sel = $('locCountry'); for(const [c,n] of list){ const o = document.createElement('option'); o.value = c; o.textContent = n; sel.appendChild(o); }
+function fillCountries(){
+  let nm; try{ nm = new Intl.DisplayNames([tr('dateLoc')],{type:'region'}); }catch(e){ nm = {of:c=>c}; }
+  const list = CC.map(c => { let n = c; try{ n = nm.of(c)||c; }catch(e){} return [c,n]; }).sort((a,b)=>a[1].localeCompare(b[1],LANG));
+  const sel = $('locCountry'); sel.textContent = ''; for(const [c,n] of list){ const o = document.createElement('option'); o.value = c; o.textContent = n; sel.appendChild(o); }
   sel.value = locCC;
-})();
+}
+fillCountries();
 const locMsg = t => { $('locMsg').textContent = t; };
 function setLoc(l){
-  CFG.lat = l.lat; CFG.lon = l.lon; CFG.city = l.name;
+  CFG.lat = l.lat; CFG.lon = l.lon; CFG.city = l.name; CFG.gps = !!l.gps;
   try{ localStorage.setItem('relogio.loc', JSON.stringify(l)); }catch(e){}
-  $('locName').textContent = l.name;
+  $('locName').textContent = cityName();
   stDay = -1; tickClock();          /* recalcula nascer/pôr do sol e lua para o novo lugar */
   loadWeather();
 }
-$('locName').textContent = CFG.city;
+$('locName').textContent = cityName();
 $('locBtn').onclick = () => { const b = $('locBox'); b.hidden = !b.hidden; $('locBtn').setAttribute('aria-expanded', String(!b.hidden)); };
 function useGps(silent){
-  if(!navigator.geolocation){ if(!silent) locMsg('Este aparelho não oferece localização aqui.'); return; }
-  if(!silent) locMsg('Buscando sua localização…');
+  if(!navigator.geolocation){ if(!silent) locMsg(tr('gpsNone')); return; }
+  if(!silent) locMsg(tr('gpsSearch'));
   navigator.geolocation.getCurrentPosition(
-    p => { setLoc({lat:+p.coords.latitude.toFixed(2), lon:+p.coords.longitude.toFixed(2), name:'Minha localização', gps:true}); if(!silent) locMsg('Pronto: usando a localização do aparelho (aproximada).'); },
-    err => { if(!silent) locMsg(err && err.code===1 ? 'Permissão negada. Libere a localização nas permissões do app e tente de novo.' : 'Não consegui obter a localização.'); },
+    p => { setLoc({lat:+p.coords.latitude.toFixed(2), lon:+p.coords.longitude.toFixed(2), name:'Minha localização', gps:true}); if(!silent) locMsg(tr('gpsOk')); },
+    err => { if(!silent) locMsg(err && err.code===1 ? tr('gpsDenied') : tr('gpsFail')); },
     {timeout:15000, maximumAge:3600e3}
   );
 }
@@ -834,26 +874,26 @@ function locRender(){
   for(const r of list){
     const b = document.createElement('button'); b.className = 'chip';
     b.textContent = r.name + (r.admin1 ? ' — '+r.admin1 : '');
-    b.onclick = () => { setLoc({lat:+(+r.latitude).toFixed(3), lon:+(+r.longitude).toFixed(3), name:r.name+(r.admin1?', '+r.admin1:''), cc:r.country_code||locCC}); box.textContent = ''; locMsg('Pronto: agora mostrando '+r.name+'.'); };
+    b.onclick = () => { setLoc({lat:+(+r.latitude).toFixed(3), lon:+(+r.longitude).toFixed(3), name:r.name+(r.admin1?', '+r.admin1:''), cc:r.country_code||locCC}); box.textContent = ''; locMsg(tr('picked')+r.name+'.'); };
     box.appendChild(b);
   }
-  if(!list.length && $('locQuery').value.trim().length>=2) locMsg('Nenhuma cidade encontrada. Confira o país e o nome.');
+  if(!list.length && $('locQuery').value.trim().length>=2) locMsg(tr('noCity'));
 }
 async function locSearch(){
   const q = $('locQuery').value.trim();
   if(q.length<2){ locRes = []; $('locStateRow').hidden = true; $('locList').textContent = ''; locMsg(''); return; }
-  locMsg('Buscando…');
+  locMsg(tr('searching'));
   try{
-    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=50&language=pt&format=json&countryCode='+locCC);
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=50&language='+T[LANG].geoLang+'&format=json&countryCode='+locCC);
     if(!r.ok) throw new Error('http');
     const j = await r.json(); locRes = j.results || [];
-    const states = [...new Set(locRes.map(x => x.admin1).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+    const states = [...new Set(locRes.map(x => x.admin1).filter(Boolean))].sort((a,b)=>a.localeCompare(b,LANG));
     const sel = $('locState'); sel.textContent = '';
-    const all = document.createElement('option'); all.value = ''; all.textContent = 'Todos os estados'; sel.appendChild(all);
+    const all = document.createElement('option'); all.value = ''; all.textContent = tr('allStates'); sel.appendChild(all);
     for(const s of states){ const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); }
     $('locStateRow').hidden = states.length<2;
     locMsg(''); locRender();
-  }catch(e){ locMsg('Sem internet para buscar cidades agora.'); }
+  }catch(e){ locMsg(tr('offline')); }
 }
 $('locQuery').oninput = () => { clearTimeout(locTimer); locTimer = setTimeout(locSearch, 400); };
 $('locState').onchange = locRender;
@@ -867,8 +907,8 @@ $('pixCopy').onclick = async () => {
   if(!ok){
     try{ const ta = document.createElement('textarea'); ta.value = key; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); }catch(e){}
   }
-  $('pixCopy').textContent = ok ? 'Copiado! ✓' : 'Não deu; segure o texto e copie';
-  setTimeout(()=>{ $('pixCopy').textContent = 'Copiar chave Pix'; }, 2500);
+  $('pixCopy').textContent = ok ? tr('copied') : tr('copyFail');
+  setTimeout(()=>{ $('pixCopy').textContent = tr('pixCopy'); }, 2500);
 };
 $('panel').onclick = e => { e.stopPropagation(); if(e.target===$('panel')) $('panel').hidden = true; };
 
@@ -902,8 +942,29 @@ function setClk(v){ document.documentElement.style.setProperty('--clk', v/100); 
 $('clk').oninput = e => setClk(+e.target.value);
 try{ const v = +localStorage.getItem('clk'); if(v>=50 && v<=140){ $('clk').value = v; setClk(v); } }catch(e){}
 addEventListener('resize', resize);
-resize(); setScene(scene,false); updateWx(); tickClock(); showGear();
-$('simLbl').textContent = '(real)';
+
+/* aplica o idioma a todos os textos da tela */
+function ft(el, txt){ if(!el) return; const n = [...el.childNodes].find(x => x.nodeType===3 && x.nodeValue.trim()!==''); if(n) n.nodeValue = n.nodeValue.match(/^\s*/)[0] + txt + n.nodeValue.match(/\s*$/)[0]; }
+function applyLang(){
+  document.documentElement.lang = tr('dateLoc'); document.title = tr('title');
+  $('gear').setAttribute('aria-label', tr('settings')); $('xClose').setAttribute('aria-label', tr('close'));
+  const h = document.querySelectorAll('#panel h3'); [tr('scene'), tr('clock'), tr('test'), tr('weather')].forEach((t,i)=>ft(h[i], t));
+  $('simNow').textContent = tr('realTime'); ft($('dim').parentNode, tr('dim')); $('luxLbl').textContent = tr(luxKey);
+  ft($('locBtn'), tr('locBtn')); $('locGps').textContent = tr('gps'); $('locName').textContent = cityName();
+  ft($('locCountry').parentNode, tr('country')); ft($('locQuery').parentNode, tr('city')); $('locQuery').placeholder = tr('cityPh'); ft($('locStateRow'), tr('state'));
+  $('langH').textContent = tr('language');
+  $('coffeeBtn').textContent = tr('coffeeBtn'); ft($('coffeeBox'), tr('coffeeTxt')); $('pixCopy').textContent = tr('pixCopy');
+  const nt = [...$('coffeeBox').querySelectorAll('div')].pop(); if(nt) nt.textContent = tr('pixNote');
+  $('close').textContent = tr('close');
+  if(SIM===null) $('simLbl').textContent = '('+tr('real')+')';
+  fillCountries(); buildChips(); setScene(scene,false); updateWx(); lastDate = ''; tickClock();
+  document.querySelectorAll('#rowLang .chip').forEach(b => b.classList.toggle('sel', b.dataset.l===LANGPREF));
+  $('locList').textContent = ''; $('locMsg').textContent = '';
+}
+[['auto','Auto'],['pt','Português'],['en','English']].forEach(([k,n])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.l=k; b.textContent=n;
+  b.onclick = () => { LANGPREF = k; try{ localStorage.setItem('relogio.lang', k); }catch(e){} resolveLang(); applyLang(); if(!WX.live) {} else loadWeather(); };
+  $('rowLang').appendChild(b); });
+resize(); applyLang(); showGear();
 loadWeather(); setInterval(loadWeather, 15*60*1000); setInterval(()=>{ if(!WX.live) loadWeather(); }, 2*60*1000); /* sem dados reais? tenta de novo a cada 2 min */
 requestAnimationFrame(frame);
 readBatt(); setInterval(readBatt, 30000);
