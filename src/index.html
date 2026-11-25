@@ -100,6 +100,8 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
       <div class="row" id="rowWx"></div>
       <h3 id="seaH">Estação</h3>
       <div class="row" id="rowSea"></div>
+      <h3 id="xmasH">Natal</h3>
+      <div class="row" id="rowXmas"></div>
       <label class="chk"><input type="checkbox" id="dim" checked> Escurecer de madrugada (23h–6h)</label>
       <label class="chk"><input type="checkbox" id="lux" checked> <span id="luxLbl">Brilho automático (sensor de luz)</span></label>
       <div id="loc">
@@ -148,6 +150,7 @@ const T = {
     sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno',
     wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade',
     rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt',
+    xmas:'Natal 🎄', xmas_auto:'Auto (1 dez – 6 jan)', xmas_on:'Ligado', xmas_off:'Desligado',
     season:'Estação', sea_auto:'Auto', sea_spring:'Primavera', sea_summer:'Verão', sea_autumn:'Outono', sea_winter:'Inverno', sea_cycle:'Ciclo' },
   en:{ title:'Ambient clock', settings:'Settings', close:'Close', scene:'Scene', clock:'Clock size', test:'Test time', realTime:'Real time', real:'real',
     weather:'Weather', live:'live', demoMode:'demo — no internet in preview', demo:'demo', dim:'Dim at night (11 PM–6 AM)',
@@ -160,6 +163,7 @@ const T = {
     sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night',
     wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm',
     rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en',
+    xmas:'Christmas 🎄', xmas_auto:'Auto (Dec 1 – Jan 6)', xmas_on:'On', xmas_off:'Off',
     season:'Season', sea_auto:'Auto', sea_spring:'Spring', sea_summer:'Summer', sea_autumn:'Fall', sea_winter:'Winter', sea_cycle:'Cycle' }
 };
 let LANGPREF = 'auto', LANG = 'pt';
@@ -389,7 +393,18 @@ function drawSeasonParts(c,S,P,dt,x0,y0,w,h){
 }
 const TREEP = (()=>{ const r = rng(55); return Array.from({length:16},()=>({a:r()*6.28, d:r()})); })();
 const TREEB = [[-2,-1],[-3,-2],[-4,-3],[-5,-3],[-4,-5],[2,-1],[3,-2],[4,-3],[5,-3],[4,-5],[0,-2],[0,-3],[1,-4],[-1,-4],[0,-5]];
+function drawPine(c,P,tx,by,r,th){
+  const f = .4+.6*P.d, g1 = sc3([34,104,70],f), g2 = sc3([22,76,52],f), snow = sc3([238,244,252],.55+.45*P.d), T = 3, tierH = Math.round(r*1.1), base = by-Math.max(2,Math.round(th*.2));
+  c.fillStyle = rgb(mixC([20,14,12],[96,66,44],P.d)); c.fillRect(tx-1,base,3,by-base);
+  for(let k=0;k<T;k++) for(let l=0;l<tierH;l++){
+    const y = base-k*Math.round(tierH*.78)-l, half = Math.max(0,Math.round(r*(1-k*.27)*(1-l/tierH*.8)));
+    c.fillStyle = rgb(l<tierH*.35 ? g2 : g1); c.fillRect(tx-half,y,2*half+1,1);
+    if(l>=Math.round(tierH*.4)){ c.fillStyle = rgb(snow); c.fillRect(tx-half,y,1,1); c.fillRect(tx+half,y,1,1); if(l===tierH-1){ c.fillRect(tx-half,y,2*half+1,1); } }
+  }
+  c.fillStyle = rgb(snow); c.fillRect(tx,base-(T-1)*Math.round(tierH*.78)-tierH,1,1);
+}
 function drawTree(c,S,P,tx,by,r,th){
+  if(S==='winter'){ drawPine(c,P,tx,by,r,th); return; }
   const sway = Math.round(Math.sin(TT*.9)*.8), top = by-th, f = .4+.6*P.d;
   c.fillStyle = rgb(mixC([20,14,12],[104,72,48],P.d)); c.fillRect(tx-1,top,3,th);
   if(S==='winter'){
@@ -403,6 +418,18 @@ function drawTree(c,S,P,tx,by,r,th){
   c.fillStyle = rgb(l1); disc(c,tx+sway-Math.round(r*.2),top-Math.round(r*.7),Math.round(r*.6));
   if(S==='spring'){ for(const p of TREEP){ c.fillStyle = rgb(sc3(p.d>.5?[250,176,206]:[255,240,244],f)); c.fillRect(tx+sway+Math.round(Math.cos(p.a)*r*1.1*p.d),top-Math.round(r*.4)+Math.round(Math.sin(p.a)*r*.8*p.d),1,1); } }
   if(S==='autumn'){ for(let i=0;i<8;i++){ const p = TREEP[i]; c.fillStyle = rgb(sc3(i%2?[236,190,60]:[190,60,36],f)); c.fillRect(tx+sway+Math.round(Math.cos(p.a)*r*1.1*p.d),top-Math.round(r*.4)+Math.round(Math.sin(p.a)*r*.8*p.d),1,1); } }
+}
+let XMASPREF = 'auto';
+try{ XMASPREF = localStorage.getItem('relogio.xmas') || 'auto'; }catch(e){}
+function xmasOn(){
+  if(XMASPREF==='on') return true; if(XMASPREF==='off') return false;
+  const d = new Date(), mo = d.getMonth(); return mo===11 || (mo===0 && d.getDate()<=6);
+}
+function buildXmasChips(){
+  const row = $('rowXmas'); row.textContent = '';
+  ['auto','on','off'].forEach(k=>{ const b = document.createElement('button'); b.className = 'chip'+(k===XMASPREF?' sel':''); b.dataset.k = k; b.textContent = tr('xmas_'+k);
+    b.onclick = () => { XMASPREF = k; try{ localStorage.setItem('relogio.xmas',k); }catch(e){} row.querySelectorAll('.chip').forEach(x=>x.classList.toggle('sel',x.dataset.k===k)); };
+    row.appendChild(b); });
 }
 function buildSeaChips(){
   const row = $('rowSea'); row.textContent = '';
@@ -474,7 +501,7 @@ function wcGeom(D){
   const xs = Math.round(D>0 ? PW*.26 : PW*.7), hxd = houseX()+14, sg = hxd>xs ? 1 : -1, xj = xs+sg*10;
   return {xs, hxd, sg, xj, W: Math.abs(hxd-xj)/12};
 }
-const wcDur = (act,D) => (act==='gatoJanela' ? 28 : 38) + 1.2 + wcGeom(D).W + 1.2;
+const wcDur = (act,D) => (act==='gatoJanela' ? 28 : 38) + 3.2 + wcGeom(D).W + 1;
 function gcat(c,cx,by,D,pose,t,fur,fur2){
   const R = (x,y,w,h,col) => { const X = Math.round(x*ANI), Y = Math.round(y*ANI), W = Math.max(1,Math.round(w*ANI)), H = Math.max(1,Math.round(h*ANI)); c.fillStyle = col; c.fillRect(D>0 ? Math.round(cx+X) : Math.round(cx-X-W), Math.round(by+Y), W, H); };
   const sw = Math.round(Math.sin(t*4)), eye = 'rgb(22,16,16)';
@@ -484,12 +511,22 @@ function gcat(c,cx,by,D,pose,t,fur,fur2){
   else { const hx = pose==='dazed' ? Math.round(Math.sin(t*8)) : 0; R(1,-6,4,6,fur); R(1+hx,-9,4,3,fur); R(1+hx,-10,1,1,fur); R(4+hx,-10,1,1,fur); R(2+hx,-8,1,1,eye); R(5,-2,3,1,fur); R(5,-3+sw,1,2,fur); }
 }
 /* gato visto de costas, sentado no peitoril, olhando a paisagem */
-function sillBack(c,x,by,fur,fur2,t,tw,ear){
-  const F = (col,ox,oy,w,h) => { c.fillStyle = col; c.fillRect(x+ox,by+oy,w,h); };
-  F(fur,1,-12+(ear===1?1:0),1,1); F(fur,8,-12+(ear===2?1:0),1,1); F(fur,1,-11,2,1); F(fur,7,-11,2,1);
-  F(fur,1,-10,8,2); F(fur,2,-8,6,1); F(fur,2,-7,6,1); F(fur,1,-6,8,6);
-  F(fur2,4,-10,2,1); F(fur2,4,-6,1,3); F(fur2,6,-4,1,3);
-  for(let i=0;i<6;i++){ const off = Math.round(Math.sin(t*5-i*.7)*tw*i/5); F(fur,9+off,-2-i,i<2?2:1,1); }
+function sillBack(c,x,by,fur,fur2,t,tw,ear,squat){
+  const F = (col,ox,oy,w,h) => { c.fillStyle = col; c.fillRect(x+ox,by+oy,w,h); };   /* oy = linha de cima da peça */
+  const jit = squat ? Math.round(Math.sin(t*30)) : 0;                                /* antes de pular: balança o bumbum */
+  const hx = squat ? 0 : Math.round(Math.sin(t*.55)*1.0), hy = squat ? 3 : (Math.sin(t*1.7)>.55 ? 1 : 0);   /* cabeça gira devagar e respira */
+  /* corpo em formato de pera: quadril largo, ombros estreitos, pescoço fino */
+  F(fur,1+jit,-1,8,1); F(fur,0+jit,-5,10,4); F(fur,1+jit,-7,8,2); F(fur,2,-9,6,2); F(fur,3,-10,4,1);
+  F(fur2,3,-9,1,5); F(fur2,6,-9,1,5); F(fur2,1+jit,-5,1,2); F(fur2,8+jit,-5,1,2);   /* listras das costas e do flanco */
+  F(fur2,1+jit,-1,2,1); F(fur2,7+jit,-1,2,1);                                         /* patinhas de trás */
+  /* cabeça + orelhas (de costas) */
+  const e1 = ear===1 ? 1 : 0, e2 = ear===2 ? 1 : 0;
+  F(fur,2+hx,-13+hy,6,3); F(fur2,4+hx,-13+hy,2,1);
+  F(fur,2+hx,-14+hy,2,1); F(fur,6+hx,-14+hy,2,1);
+  F(fur,2+hx,-15+hy+e1,1,1); F(fur,7+hx,-15+hy+e2,1,1);
+  /* rabo deitado no chão, com a pontinha balançando */
+  F(fur,10+jit,-2,3,2);
+  for(let i=0;i<4;i++){ const off = Math.round(Math.sin(t*5-i*.8)*tw*(i+1)/4*.6); F(fur,13+off+(squat?Math.round(Math.sin(t*20)):0),-2-i,1,1); }
 }
 /* gato espiando por cima do peitoril (pendurado): orelhas, olhos e patinhas */
 function peek(c,x,ys,t,slip,fur,fur2){
@@ -515,11 +552,11 @@ function windowCat(c,P,layer,nearY){
     let ear = 0; for(const [a,b,k] of ears) if(tt>=a && tt<b) ear = k;
     if(layer==='sill') sillBack(c,G.xs-5,ys,fur,fur2,t,tw,ear);
   };
-  const exit = t0 => {                    /* pula do peitoril pra grama e vai até a casinha */
+  const exit = t0 => {                    /* agacha, some do peitoril e, um tempinho depois, aparece na grama já indo pra casinha */
     const s = t-t0;
-    if(s<1.2){ if(layer!=='sill') return; const u = s/1.2, x = G.xs+G.sg*10*u, y = ys-2+(gy(G.xj)-(ys-2))*u-Math.sin(u*Math.PI)*12; gcat(c,x,y,G.sg,'jump',t,fur,fur2); return; }
-    if(layer!=='grass') return;
-    const w = s-1.2, x = G.xj+G.sg*Math.min(w*12,G.W*12), fade = clamp(1-(w-G.W)/1,0,1);
+    if(s<.7){ if(layer==='sill') sillBack(c,G.xs-5,ys,fur,fur2,t,.6,0,true); return; }
+    if(s<3.2 || layer!=='grass') return;
+    const w = s-3.2, x = G.xj+G.sg*4+G.sg*Math.min(w*12,G.W*12), fade = Math.min(clamp(w/.4,0,1), clamp(1-(w-G.W)/1,0,1));
     c.globalAlpha = fade; gcat(c,x,gy(x),G.sg,'walk',t,fur,fur2); c.globalAlpha = 1;
   };
   if(A==='gatoJanela'){
@@ -588,6 +625,14 @@ function drawPixel(dt){
   c.fillStyle = rgb(mixC([250,210,110],[60,40,30],P.d*.8)); c.fillRect(hx+16,by-4,1,1);
   c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)); c.fillRect(hx+3,by-9,5,5);
   c.fillStyle = rgb(mixC(wall,[0,0,0],.45)); c.fillRect(hx+5,by-9,1,5); c.fillRect(hx+3,by-7,5,1);
+  if(xmasOn()){      /* pisca-pisca no telhado e no beiral */
+    const cols = [[255,70,70],[255,214,80],[90,210,130],[100,160,255]], pts = [];
+    for(let r=0;r<=8;r+=2) pts.push([hx-2+r,by-13-r],[hx+21-r,by-13-r]);
+    for(let x=hx+1;x<hx+20;x+=3) pts.push([x,by-12]);
+    pts.forEach((q,i)=>{ const lit = Math.floor(TT*1.6+i*.5)%2===0, col = cols[i%4];
+      if(lit && P.d<.65){ c.fillStyle = rgb(col,.2*(1-P.d)); c.fillRect(q[0]-1,q[1]-1,3,3); }
+      c.fillStyle = rgb(col, lit ? 1 : .3); c.fillRect(q[0],q[1],1,1); });
+  }
   if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+15+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-25-ph),1,1); }
   { const tx = Math.round(PW*.12); drawTree(c,SEA,P,tx,nearY(tx)+3,9,16); }
   drawWild(c,P,hy,nearY,farY);
@@ -865,6 +910,19 @@ function drawLofi(dt){
     else if(SEA==='summer'){ c.fillStyle = 'rgba(255,236,150,.85)'; c.fillRect(ix+1,dy-5,4,5); c.fillStyle = rgb(dk([120,200,90],lum)); c.fillRect(ix+1,dy-5,4,1); c.fillStyle = rgb(dk([240,90,90],lum)); c.fillRect(ix+4,dy-8,1,4); c.fillStyle = rgb(dk([250,230,90],lum)); c.fillRect(ix,dy-6,2,1); }
     else if(SEA==='autumn'){ c.fillStyle = rgb(dk([226,118,36],lum)); c.fillRect(ix,dy-4,6,4); c.fillRect(ix+1,dy-5,4,1); c.fillStyle = rgb(dk([170,80,24],lum)); c.fillRect(ix+2,dy-4,1,4); c.fillRect(ix+4,dy-4,1,4); c.fillStyle = rgb(dk([70,110,50],lum)); c.fillRect(ix+3,dy-7,1,2); }
     else { c.fillStyle = rgb(dk([210,70,70],lum)); c.fillRect(ix+2,dy-5,2,5); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(ix+2,dy-7-(Math.sin(TT*9)>.3?1:0),2,2); c.fillStyle = 'rgba(255,210,130,.12)'; disc(c,ix+3,dy-6,6); }
+  }
+  // arvorezinha de Natal (à direita da pilha de livros, do tamanho do abajur)
+  if(xmasOn() && PW-40 > 62){
+    const tx = 48, cxm = tx+4, g1 = rgb(dk([40,126,74],lum)), g2 = rgb(dk([28,98,58],lum));
+    c.fillStyle = rgb(dk([96,62,40],lum)); c.fillRect(cxm-1,dy-2,3,2);
+    const tier = [[3,9],[4,7],[5,5],[6,7],[7,5],[8,3],[9,5],[10,3],[11,1]];
+    tier.forEach(([h,w],i)=>{ c.fillStyle = i%3===0 ? g2 : g1; c.fillRect(cxm-Math.floor(w/2),dy-h,w,1); });
+    const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]], L = [[cxm-3,dy-3],[cxm+3,dy-3],[cxm-1,dy-5],[cxm+1,dy-5],[cxm-2,dy-7],[cxm+2,dy-7],[cxm,dy-9]];
+    L.forEach(([lx,ly],i)=>{ const lit = Math.floor(TT*1.6+i*.55)%2===0; c.fillStyle = rgb(lc[i%4], lit?1:.3); c.fillRect(lx,ly,1,1); });
+    const sp = .7+.3*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cxm,dy-14,1,1); c.fillRect(cxm-1,dy-13,3,1); c.fillRect(cxm,dy-12,1,1);
+    c.fillStyle = rgb(dk([210,60,60],lum)); c.fillRect(tx-3,dy-3,3,3); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(tx-2,dy-3,1,3); c.fillRect(tx-3,dy-2,3,1);
+    c.fillStyle = rgb(dk([70,120,210],lum)); c.fillRect(tx+9,dy-2,3,2);
+    if(P.d<.65){ c.fillStyle = `rgba(255,200,120,${.07*(1-P.d)})`; disc(c,cxm,dy-6,8); }
   }
   // livros
   const bx = 34;
@@ -1185,7 +1243,7 @@ function applyLang(){
   const nt = [...$('coffeeBox').querySelectorAll('div')].pop(); if(nt) nt.textContent = tr('pixNote');
   $('close').textContent = tr('close');
   if(SIM===null) $('simLbl').textContent = '('+tr('real')+')';
-  $('seaH').textContent = tr('season'); buildSeaChips();
+  $('seaH').textContent = tr('season'); buildSeaChips(); $('xmasH').textContent = tr('xmas'); buildXmasChips();
   fillCountries(); buildChips(); setScene(scene,false); updateWx(); lastDate = ''; tickClock();
   document.querySelectorAll('#rowLang .chip').forEach(b => b.classList.toggle('sel', b.dataset.l===LANGPREF));
   $('locList').textContent = ''; $('locMsg').textContent = '';
