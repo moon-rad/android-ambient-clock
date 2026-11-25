@@ -1141,7 +1141,7 @@ function drawAurora(dt){
 
 /* ---------- Cena: Noturno (céu estrelado dinâmico) ---------- */
 const cvNight = $('cvNight'), nc = cvNight.getContext('2d');
-let NDPR = 1, NSTARS = [], NT = 0, SHOOT = null, nextShoot = 12;
+let NDPR = 1, NSTARS = [], NT = 0, SHOOT = null, nextShoot = 12, NEB = null, NEBR = 0;
 function sizeNight(){
   NDPR = Math.min(devicePixelRatio||1, 2);
   cvNight.width = Math.round(innerWidth*NDPR); cvNight.height = Math.round(innerHeight*NDPR);
@@ -1151,14 +1151,21 @@ function sizeNight(){
     const big = r()>.85;
     return { d: Math.sqrt(r())*R, a: r()*Math.PI*2, r: (big ? 1.9 : .8+r()*.7)*NDPR, sp: .35+r()*.75, ph: r()*6.28, k: r(), mx: .65+r()*.35 };
   });
+  /* nebulosas bem fracas, pré-desenhadas; giram junto com o céu */
+  NEBR = R; const S = Math.ceil(R), cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), k = S/(2*R), rr = rng(23);
+  const cols = [[120,90,200],[70,120,210],[190,90,160],[90,170,200],[150,110,220]];
+  for(let i=0;i<7;i++){ const ang = rr()*Math.PI*2, dist = (.15+rr()*.75)*R, x = (R+Math.cos(ang)*dist)*k, y = (R+Math.sin(ang)*dist)*k, rad = (.28+rr()*.35)*R*k, col = cols[i%cols.length], a = .05+rr()*.05;
+    const gr = g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,`rgba(${col},${a.toFixed(3)})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0,0,S,S); }
+  NEB = cv;
 }
 function drawNight(dt){
   NT += dt;
   const c = nc, W = cvNight.width, H = cvNight.height, cx = W/2, cy = H/2;
   c.fillStyle = '#02030a'; c.fillRect(0,0,W,H);
-  const rot = NT*.004; /* o céu gira bem devagar */
+  const rot = NT*.010; /* o céu gira bem devagar (uma volta a cada ~10 min); o centro um pouco mais rápido que a borda, como uma galáxia */
+  if(NEB){ c.save(); c.translate(cx,cy); c.rotate(rot*.9); c.drawImage(NEB,-NEBR,-NEBR,2*NEBR,2*NEBR); c.restore(); }
   for(const s of NSTARS){
-    const ang = s.a+rot, x = cx+Math.cos(ang)*s.d, y = cy+Math.sin(ang)*s.d;
+    const ang = s.a+rot*(1.25-.5*Math.min(1,s.d/NEBR)), x = cx+Math.cos(ang)*s.d, y = cy+Math.sin(ang)*s.d;
     if(x<-6||y<-6||x>W+6||y>H+6) continue;
     const t = .5+.5*Math.sin(s.ph+NT*s.sp);          /* acende e apaga suavemente */
     const al = Math.pow(t,2)*s.mx+.06;
