@@ -44,7 +44,7 @@ body[data-scene=night] #wx{color:#ff9d57;opacity:.4;border-color:rgba(255,157,87
 #gear.on{opacity:.7}
 #panel{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:5}
 #panel[hidden]{display:none}
-.card{width:min(92vw,440px);max-height:88vh;overflow:auto;background:rgba(24,26,38,.92);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px 20px}
+.card{position:relative;width:min(92vw,440px);max-height:88vh;overflow:auto;background:rgba(24,26,38,.92);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:18px 20px}
 .card h3{margin:14px 0 8px;font-size:13px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;opacity:.65}
 .card h3:first-child{margin-top:0}
 .row{display:flex;flex-wrap:wrap;gap:8px}
@@ -54,6 +54,7 @@ body[data-scene=night] #wx{color:#ff9d57;opacity:.4;border-color:rgba(255,157,87
 input[type=range]{width:100%;margin:6px 0}
 label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px}
 .close{margin-top:16px;width:100%}
+#xClose{position:sticky;top:0;z-index:2;display:block;margin:-8px -10px -28px auto;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:18px;line-height:1;cursor:pointer}
 #coffee{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}
 #coffeeBox{margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);font-size:14px;line-height:1.45}
 #coffeeBox[hidden]{display:none}
@@ -78,6 +79,7 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
   <button id="gear" aria-label="Ajustes">⚙</button>
   <div id="panel" hidden>
     <div class="card">
+      <button id="xClose" aria-label="Fechar">✕</button>
       <h3>Cena</h3>
       <div class="row" id="rowScene"></div>
       <h3>Tamanho do relógio <span id="clkLbl">(80%)</span></h3>
@@ -275,6 +277,60 @@ function sizePixel(){
   DROPS = Array.from({length:Math.min(140,Math.round(PW*PH/160))},()=>({x:r()*PW, y:r()*PH, v:70+r()*50}));
 }
 function disc(c,cx,cy,r){ for(let dy=-r;dy<=r;dy++){ const w=Math.floor(Math.sqrt(r*r-dy*dy+.5)); c.fillRect(cx-w,cy+dy,2*w+1,1); } }
+/* ---------- Bichos e flores lá fora (cena Janela): de vez em quando, e conforme o clima ---------- */
+const WILD = {act:null, t0:0, dur:0, next:40, dir:1};
+const WILD_DUR = {capivara:55, ovelhas:50, gato:36};
+const FLOWERS = (()=>{ const r=rng(21), cs=[[240,120,170],[250,220,90],[240,240,250],[170,130,230]]; return Array.from({length:16},()=>({x:r(), o:Math.floor(r()*4), c:cs[Math.floor(r()*4)]})); })();
+function wildPick(P){
+  const k = WX.kind, day = P.d>.35;
+  if(k==='storm') return null;
+  const opts = [];
+  if(k==='rain'){ opts.push('capivara'); }
+  else { opts.push('gato'); if(day){ opts.push('capivara'); if(k!=='fog') opts.push('ovelhas'); } }
+  return opts[Math.floor(Math.random()*opts.length)];
+}
+function wildUpdate(P){
+  if(!WILD.act){
+    if(TT>=WILD.next){ const a = wildPick(P); if(a){ WILD.act=a; WILD.t0=TT; WILD.dur=WILD_DUR[a]; WILD.dir=Math.random()<.5?1:-1; } else WILD.next = TT+30; }
+  } else if(TT-WILD.t0>=WILD.dur || WX.kind==='storm'){ WILD.act=null; WILD.next = TT+70+Math.random()*90; }
+}
+function drawWild(c,P,hy,nearY,farY){
+  wildUpdate(P);
+  const lum = .5+.5*P.d, col = (r,g,b) => rgb([r*lum,g*lum,b*lum]);
+  /* flores: abertas com sol, botões fechados com chuva ou à noite */
+  const open = (WX.kind==='clear'||WX.kind==='partly') && P.d>.45;
+  for(const f of FLOWERS){
+    const x = Math.round(f.x*PW), y = nearY(x)+1+f.o; if(y>PH-8) continue;
+    c.fillStyle = col(50,120,70); c.fillRect(x,y-(open?3:2),1,open?3:2);
+    c.fillStyle = col(f.c[0],f.c[1],f.c[2]);
+    if(open){ c.fillRect(x-1,y-4,3,1); c.fillRect(x,y-5,1,3); c.fillStyle = col(255,220,90); c.fillRect(x,y-4,1,1); }
+    else c.fillRect(x,y-3,1,1);
+  }
+  const A = WILD.act; if(!A) return;
+  const t = TT-WILD.t0, u = t/WILD.dur, D = WILD.dir;
+  c.globalAlpha = clamp(Math.min(1,t/2,(WILD.dur-t)/2),0,1);
+  const R = (cx,cy,x,y,w,h,color) => { c.fillStyle = color; c.fillRect(D>0 ? Math.round(cx+x) : Math.round(cx-x-w), cy+y, w, h); };
+  if(A==='capivara'){
+    const x = D>0 ? -18+u*(PW+36) : PW+18-u*(PW+36), by = clamp(nearY(Math.round(clamp(x,0,PW-1)))+2,0,PH-9), st = Math.floor(t*3)%2;
+    const body = col(160,110,70), head = col(176,126,84), dkc = col(120,80,52);
+    R(x,by,0,-6,12,5,body); R(x,by,11,-7,5,5,head); R(x,by,15,-5,2,3,dkc); R(x,by,12,-8,1,1,dkc); R(x,by,14,-6,1,1,col(30,20,16));
+    R(x,by,1,-1,2,2-st,dkc); R(x,by,4,-1,2,1+st,dkc); R(x,by,8,-1,2,2-st,dkc); R(x,by,10,-1,2,1+st,dkc);
+  } else if(A==='ovelhas'){
+    const x0 = D>0 ? PW*.26 : PW*.58;
+    for(let i=0;i<3;i++){
+      const x = x0+i*10+(i===1?2:0), by = Math.min(farY(Math.round(x))+7, nearY(Math.round(x))+1), hd = Math.floor(t*.7+i*1.3)%2;
+      const wool = col(235,235,225), dc = col(60,52,50);
+      R(x,by,0,-5,6,4,wool); R(x,by,1,-6,4,1,wool); R(x,by,6,-4+hd,2,2,dc); R(x,by,1,-1,1,2,dc); R(x,by,4,-1,1,2,dc);
+    }
+  } else if(A==='gato'){
+    const sp = u<.4 ? u/.4*.5 : u<.6 ? .5 : .5+(u-.6)/.4*.5, sit = u>=.4 && u<.6;
+    const x = D>0 ? -10+sp*(PW+20) : PW+10-sp*(PW+20), by = clamp(nearY(Math.round(clamp(x,0,PW-1)))+2,0,PH-9), fur = col(214,140,70), sw = Math.round(Math.sin(t*4));
+    if(sit){ R(x,by,1,-6,4,6,fur); R(x,by,1,-9,4,3,fur); R(x,by,1,-10,1,1,fur); R(x,by,4,-10,1,1,fur); R(x,by,5,-2,3,1,fur); R(x,by,2,-8,1,1,col(150,210,90)); }
+    else { const st = Math.floor(t*4)%2; R(x,by,0,-4,7,3,fur); R(x,by,6,-6,3,3,fur); R(x,by,6,-7,1,1,fur); R(x,by,8,-7,1,1,fur); R(x,by,-1+sw,-7,1,4,fur); R(x,by,1,-1,1,1+st,fur); R(x,by,5,-1,1,2-st,fur); }
+  }
+  c.globalAlpha = 1;
+}
+
 function drawPixel(dt){
   const c = px; TT += dt;
   const m = minutesNow(), P = phase(m), B = bodies(m), K = KINDS[WX.kind];
@@ -312,12 +368,15 @@ function drawPixel(dt){
   let near = mixC([10,16,32],[45,100,70],P.d); near = mixC(near,[140,80,64],P.g*.3);
   c.fillStyle = rgb(far); for(let x=0;x<PW;x++){ const y=farY(x); c.fillRect(x,y,1,PH-y); }
   c.fillStyle = rgb(near); for(let x=0;x<PW;x++){ const y=nearY(x); c.fillRect(x,y,1,PH-y); }
-  // casinha
-  const hx = Math.round(PW*.74), by = nearY(hx)+3;
-  c.fillStyle = rgb(mixC([28,26,40],[176,140,112],P.d)); c.fillRect(hx,by-7,11,7);
-  c.fillStyle = rgb(mixC([30,18,24],[140,60,50],P.d));
-  for(let i=0;i<4;i++) c.fillRect(hx-1+i,by-11+i,13-2*i,1);
-  c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([28,26,40],[176,140,112],P.d),1); c.fillRect(hx+4,by-5,3,3);
+  // casinha (parede, telhado triangular, porta, janela acesa à noite e chaminé)
+  const hx = Math.round(PW*.74), by = nearY(hx)+3, wall = mixC([28,26,40],[176,140,112],P.d), roof = mixC([30,18,24],[140,60,50],P.d);
+  c.fillStyle = rgb(wall); c.fillRect(hx,by-7,11,7);
+  c.fillStyle = rgb(roof); for(let r=0;r<=6;r++) c.fillRect(hx-1+r,by-8-r,13-2*r,1);
+  c.fillStyle = rgb(mixC(roof,[0,0,0],.2)); c.fillRect(hx+8,by-13,2,5);
+  c.fillStyle = rgb(mixC([20,14,18],[96,60,44],P.d)); c.fillRect(hx+7,by-4,2,4);
+  c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)); c.fillRect(hx+2,by-5,3,3);
+  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+8+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-14-ph),1,1); }
+  drawWild(c,P,hy,nearY,farY);
   // chuva
   if(WX.kind==='rain'||WX.kind==='storm'){
     c.fillStyle='rgba(190,210,255,.55)';
@@ -340,12 +399,14 @@ function drawPixel(dt){
 /* ---------- Cena: Lo-fi (quartinho aconchegante) ---------- */
 const dk = (c,f) => [c[0]*f, c[1]*f, c[2]*f];
 /* ---------- Gatinho: dorme, mas de vez em quando faz alguma coisa ---------- */
-const CAT = {act:'sleep', t0:0, dur:0, next:30};
-const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, stretch:4.5, watch:26, walk:18};
+const CAT = {act:'sleep', t0:0, dur:0, next:20};
+const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, bocejo:2.6, stretch:4.5, lavar:9, watch:22, walk:31};
+const CAT_MUG = 31;   /* onde o gato para ao lado da caneca (x da frente do corpo) */
+const catWalkOK = () => PW-40-CAT_MUG >= 10;   /* sem espaço na mesa (tela estreita): não passeia */
 function catPick(){
   const m = minutesNow(), wet = WX.kind==='rain'||WX.kind==='storm', calm = m<330;
-  const w = {tail:30, ear:20, eye:wet?24:8, stretch:calm?6:15, watch:wet?22:10, walk:calm?3:12};
-  if(PW-40-48 < 10) w.walk = 0;   /* sem espaço na mesa (tela estreita) */
+  const w = {tail:18, ear:12, eye:wet?20:6, bocejo:calm?10:8, stretch:calm?8:18, lavar:calm?3:10, watch:wet?24:14, walk:calm?3:12};
+  if(!catWalkOK()){ w.walk = 0; }
   let r = Math.random()*Object.values(w).reduce((a,b)=>a+b,0);
   for(const k in w){ r -= w[k]; if(r<=0) return k; }
   return 'tail';
@@ -353,15 +414,30 @@ function catPick(){
 function catStart(act){ CAT.act = act; CAT.t0 = TT; CAT.dur = CAT_DUR[act]||0; }
 function catUpdate(){
   if(CAT.act==='sleep'){ if(TT>=CAT.next) catStart(catPick()); }
-  else if(TT-CAT.t0>=CAT.dur){ CAT.act='sleep'; CAT.next = TT + (minutesNow()<330 ? 150+Math.random()*180 : 50+Math.random()*130); }
+  else if(TT-CAT.t0>=CAT.dur){
+    if(CAT.act==='watch' && catWalkOK() && Math.random()<.8){ catStart('walk'); return; }   /* sentado, olha a janela e depois vai à caneca */
+    CAT.act='sleep'; CAT.next = TT + (minutesNow()<330 ? 100+Math.random()*120 : 40+Math.random()*80);
+  }
 }
 function drawCat(c,dy,lum){
   catUpdate();
   const a = CAT.act, t = TT-CAT.t0, cx0 = PW-40;
   const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum));
-  const eyeC = 'rgb(150,210,90)', pink = 'rgb(240,150,160)';
+  const eyeC = 'rgb(22,16,16)', pink = 'rgb(240,150,160)';   /* olhos: pontinhos pretos */
   let ox = cx0, fl = false;
   const F = (col,x,y,w,h) => { c.fillStyle = col; c.fillRect(fl ? ox+16-x-w : ox+x, y, w, h); };
+  /* gato sentado (de lado, virado para a esquerda): hd = cabeça baixa, paw = lavando o rosto */
+  const sit = (hd,paw,ty) => {
+    F(fur,4,dy-7,5,1); F(fur,3,dy-6,7,5); F(fur,3,dy-1,7,1);          /* anca redonda */
+    F(fur,2,dy-11,5,6);                                                  /* peito */
+    if(!paw){ F(fur,1,dy-6,2,6); F(fur,0,dy-1,3,1); }                    /* perna da frente esticada */
+    const hy = dy-16+hd;
+    F(fur,0,hy,6,5); F(fur,0,hy-2,1,2); F(fur,4,hy-2,1,2);               /* cabeça e orelhas */
+    F(eyeC,1,hy+2,1,1); F(eyeC,4,hy+2,1,1); F(pink,2,hy+3,2,1);
+    F(fur2,6,dy-10,1,3); F(fur2,7,dy-5,1,3);
+    F(fur,10,dy-3,3,2); F(fur,12,dy-6+ty,1,4);                           /* rabo */
+    if(paw){ const up = Math.round(Math.sin(t*6)); F(fur,-1,hy+3+up,2,3); F(fur,-1,dy-1,3,1); }
+  };
   let zzz = false;
   if(a==='stretch'){
     const e = Math.min(1, Math.sin(Math.PI*clamp(t/CAT.dur,0,1))*1.6);
@@ -373,23 +449,27 @@ function drawCat(c,dy,lum){
     if(e>.5){ F(fur2,-3-k,dy-4+k2,2,1); }   /* olhinho apertado */
   } else if(a==='watch'){
     ox = cx0+2;
-    const ty = Math.round(Math.sin(t*2.5)), bob = Math.round(Math.sin(t*.7)*.6);
-    F(fur,0,dy-5,9,5); F(fur,1,dy-10,6,6); F(fur,0,dy-15+bob,6,5);
-    F(fur,0,dy-17+bob,1,2); F(fur,4,dy-17+bob,1,2);
-    F(eyeC,1,dy-13+bob,1,1); F(eyeC,3,dy-13+bob,1,1); F(pink,0,dy-12+bob,1,1);
-    F(fur2,3,dy-9,1,3); F(fur,9,dy-2,4,2); F(fur,12,dy-4+ty,1,3);
+    sit(Math.round(Math.sin(t*.7)*.6)+1, false, Math.round(Math.sin(t*2.5)));
+  } else if(a==='lavar'){
+    ox = cx0+2;
+    sit(1+(Math.sin(t*6)>0?1:0), true, Math.round(Math.sin(t*2)));
   } else if(a==='walk'){
-    const D = cx0-48; let p, moving = true;
-    if(t<7) p = t/7; else if(t<10){ p = 1; moving = false; } else if(t<17) p = 1-(t-10)/7; else { p = 0; moving = false; }
-    fl = t>=10;
+    const D = cx0-CAT_MUG; let p = 0, moving = false, mode = 'walk';
+    if(t<11){ p = t/11; moving = true; }
+    else if(t<19){ p = 1; mode = 'sit'; }
+    else if(t<30){ p = 1-(t-19)/11; moving = true; fl = true; }
     ox = cx0 - Math.round(p*D);
-    const st = moving ? Math.floor(t*6)%2 : 0, hd = (t>=7&&t<10) ? 2 : 0, sw = Math.round(Math.sin(t*5));
-    F(fur,3,dy-9,12,4);
-    F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
-    F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
-    F(fur,-2,dy-11+hd,5,5); F(fur,-2,dy-13+hd,1,2); F(fur,2,dy-13+hd,1,2);
-    F(nose,-1,dy-9+hd,1,1); F(pink,-2,dy-8+hd,1,1);
-    F(fur,15,dy-10,2,2); F(fur,16+sw,dy-14,1,5);
+    if(mode==='sit'){
+      sit(Math.floor(t*.8)%2===0 ? 2 : 1, false, Math.round(Math.sin(t*3)));
+    } else {
+      const st = moving ? Math.floor(t*6)%2 : 0, sw = Math.round(Math.sin(t*3));
+      F(fur,3,dy-9,12,4);
+      F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
+      F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
+      F(fur,-2,dy-11,5,5); F(fur,-2,dy-13,1,2); F(fur,2,dy-13,1,2);
+      F(eyeC,-1,dy-9,1,1); F(eyeC,1,dy-9,1,1); F(pink,-2,dy-8,1,1);
+      F(fur,15,dy-10,2,2); F(fur,16+sw,dy-17,1,8); F(fur2,16+sw+1,dy-18,1,1);   /* rabo erguido */
+    }
   } else {
     const br = Math.round((Math.sin(TT*1.7)+1)/2);
     F(fur,0,dy-5,14,5); F(fur,1,dy-6-br,12,1+br);
@@ -401,9 +481,10 @@ function drawCat(c,dy,lum){
     const ty = a==='tail' ? Math.round(Math.sin(t*7)*1.6) : 0;
     F(fur,16,dy-5+ty,1,3); if(ty!==0) F(fur,17,dy-4+ty,1,2);
     F(fur2,4,dy-6-br,1,2+br); F(fur2,8,dy-6-br,1,2+br);
-    F(nose,-2,dy-4,2,1); F(pink,-3,dy-3,1,1);
+    if(a==='bocejo' && t>.3 && t<CAT.dur-.3){ F('rgb(190,70,90)',-3,dy-4,2,2); }   /* boca aberta */
+    else { F(nose,-2,dy-4,2,1); F(pink,-3,dy-3,1,1); }
     if(a==='eye' && t>.5 && t<CAT.dur-.9){ F(eyeC,-2,dy-5,1,1); }
-    else zzz = true;
+    else if(a!=='bocejo') zzz = true;
   }
   if(zzz){
     const zt = (TT*1.6)%6;
@@ -523,6 +604,8 @@ function drawLofi(dt){
 /* ---------- Cena: Aurora (partículas em campo de fluxo) ---------- */
 const cvAu = $('cvAurora'), au = cvAu.getContext('2d');
 let DPR = 1, PARTS = [], AT = 0;
+const APAL = [[265,55,.75,.62],[175,45,.8,.62],[55,95,.75,.58],[335,50,.85,.62],[205,70,.8,.60],[290,60,.8,.60]];  /* matiz inicial, amplitude, saturação, luz */
+const AP0 = Math.floor(Math.random()*APAL.length);
 function sizeAurora(){
   DPR = Math.min(devicePixelRatio||1, 1.5);
   cvAu.width = Math.round(innerWidth*DPR); cvAu.height = Math.round(innerHeight*DPR);
@@ -533,20 +616,18 @@ function drawAurora(dt){
   AT += dt;
   const m = minutesNow(), P = phase(m);
   const bg = mixC(P.t,[0,0,0],.72);
-  au.fillStyle = rgb(bg,.10); au.fillRect(0,0,cvAu.width,cvAu.height);
+  au.fillStyle = rgb(bg,.14); au.fillRect(0,0,cvAu.width,cvAu.height);
   au.lineWidth = 1.4*DPR; au.lineCap = 'round';
-  // cores por período: noite violeta/magenta · manhã dourado/verde · tarde ciano/azul · nascer/pôr rosa/laranja
-  const f = clamp((m-ST.sr)/(ST.ss-ST.sr),0,1);
-  const mw = 1-sstep(.30,.55,f), gw = P.g*.9, rest = 1-gw;
-  const wN = rest*(1-P.d), wM = rest*P.d*mw, wA = rest*P.d*(1-mw), wG = gw;
+  // combinações de cores que se revezam devagar (troca suave a cada ~80 s)
+  const per = 80, ia = (AP0+Math.floor(AT/per))%APAL.length, ib = (ia+1)%APAL.length, tb = sstep(per-16,per,AT%per);
   const gk = KINDS[WX.kind].g*.55;
   const AB = [];
   for(let i=0;i<8;i++){
-    const k = (i+.5)/8;
-    const cn = hsl2rgb(265+k*55,.75,.62), cm = hsl2rgb(55+k*95,.75,.58), ca = hsl2rgb(175+k*45,.8,.62), cg = hsl2rgb((335+k*50)%360,.85,.62);
-    let col = [0,1,2].map(j => cn[j]*wN+cm[j]*wM+ca[j]*wA+cg[j]*wG);
+    const k = (i+.5)/8, A = APAL[ia], B = APAL[ib];
+    const ca = hsl2rgb((((A[0]+k*A[1])%360)+360)%360,A[2],A[3]), cb = hsl2rgb((((B[0]+k*B[1])%360)+360)%360,B[2],B[3]);
+    let col = mixC(ca,cb,tb);
     col = mixC(col,[150,155,165],gk);
-    AB.push(rgb(col,.5));
+    AB.push(rgb(col,.6));
   }
   for(const p of PARTS){
     const x=p.x/DPR, y=p.y/DPR;
@@ -555,13 +636,13 @@ function drawAurora(dt){
     au.strokeStyle = AB[(p.k*8)|0];
     au.beginPath(); au.moveTo(p.x,p.y); au.lineTo(nx,ny); au.stroke();
     p.x=nx; p.y=ny; p.a+=1;
-    if(p.x<0||p.y<0||p.x>cvAu.width||p.y>cvAu.height||p.a>260){ p.x=Math.random()*cvAu.width; p.y=Math.random()*cvAu.height; p.a=0; }
+    if(p.x<0||p.y<0||p.x>cvAu.width||p.y>cvAu.height||p.a>200){ p.x=Math.random()*cvAu.width; p.y=Math.random()*cvAu.height; p.a=0; }
   }
 }
 
 /* ---------- Cena: Noturno (céu estrelado dinâmico) ---------- */
 const cvNight = $('cvNight'), nc = cvNight.getContext('2d');
-let NDPR = 1, NSTARS = [], NT = 0, SHOOT = null, nextShoot = 20;
+let NDPR = 1, NSTARS = [], NT = 0, SHOOT = null, nextShoot = 12;
 function sizeNight(){
   NDPR = Math.min(devicePixelRatio||1, 2);
   cvNight.width = Math.round(innerWidth*NDPR); cvNight.height = Math.round(innerHeight*NDPR);
@@ -591,8 +672,8 @@ function drawNight(dt){
   nextShoot -= dt;
   if(!SHOOT && nextShoot<=0){
     const a = (.15+Math.random()*.35)*Math.PI;
-    SHOOT = { x:Math.random()*W*.8+W*.1, y:Math.random()*H*.4, vx:Math.cos(a)*W*.9*(Math.random()<.5?1:-1), vy:Math.sin(a)*W*.5, t:0 };
-    nextShoot = 25+Math.random()*40;
+    SHOOT = { x:Math.random()*W*.8+W*.1, y:Math.random()*H*.4, vx:Math.cos(a)*W*.9*(Math.random()<.5?1:-1), vy:Math.sin(a)*W*.5, t:0, i:.45+Math.random()*.55 };
+    nextShoot = 18+Math.random()*27;
   }
   if(SHOOT){
     SHOOT.t += dt; const T = .9;
@@ -600,7 +681,7 @@ function drawNight(dt){
     else {
       const p = SHOOT.t/T, x = SHOOT.x+SHOOT.vx*p*.4, y = SHOOT.y+SHOOT.vy*p*.4, fade = Math.sin(p*Math.PI);
       const g = c.createLinearGradient(x,y,x-SHOOT.vx*.06,y-SHOOT.vy*.06);
-      g.addColorStop(0,`rgba(255,255,255,${.7*fade})`); g.addColorStop(1,'rgba(255,255,255,0)');
+      g.addColorStop(0,`rgba(255,255,255,${.7*fade*SHOOT.i})`); g.addColorStop(1,'rgba(255,255,255,0)');
       c.strokeStyle = g; c.lineWidth = 1.4*NDPR; c.lineCap = 'round';
       c.beginPath(); c.moveTo(x,y); c.lineTo(x-SHOOT.vx*.06,y-SHOOT.vy*.06); c.stroke();
     }
@@ -692,7 +773,8 @@ function initNative(n){
 }
 initNative(0);
 $('gear').onclick = e => { e.stopPropagation(); $('panel').hidden = false; };
-$('close').onclick = () => { $('panel').hidden = true; };
+$('close').onclick = e => { e.stopPropagation(); $('panel').hidden = true; };
+$('xClose').onclick = e => { e.stopPropagation(); $('panel').hidden = true; };
 $('coffeeBtn').onclick = () => { const b = $('coffeeBox'); b.hidden = !b.hidden; $('coffeeBtn').setAttribute('aria-expanded', String(!b.hidden)); };
 $('pixCopy').onclick = async () => {
   const key = $('pixKey').textContent.trim(); let ok = false;
@@ -703,11 +785,11 @@ $('pixCopy').onclick = async () => {
   $('pixCopy').textContent = ok ? 'Copiado! ✓' : 'Não deu; segure o texto e copie';
   setTimeout(()=>{ $('pixCopy').textContent = 'Copiar chave Pix'; }, 2500);
 };
-$('panel').onclick = e => { if(e.target===$('panel')) $('panel').hidden = true; };
+$('panel').onclick = e => { e.stopPropagation(); if(e.target===$('panel')) $('panel').hidden = true; };
 
 let first = true;
 $('stage').addEventListener('click', e => {
-  if(!$('panel').hidden || e.target.id==='gear') return;
+  if(!$('panel').hidden || e.target.id==='gear' || (e.target.closest && e.target.closest('#panel'))) return;   /* clicar para fechar o menu não troca de cena */
   if(first){ first=false;
     if(!window.RelogioNative){ try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(()=>{}); }catch(_){} }
     try{ navigator.wakeLock && navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){}
