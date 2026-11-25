@@ -12,10 +12,13 @@ if (!fs.existsSync(javaDir)) throw new Error('Pasta Java não encontrada: ' + ja
 const mainActivity = `package ${pkg};
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
@@ -53,6 +56,19 @@ public class MainActivity extends BridgeActivity {
 
     /** Ponte exposta à página como window.RelogioNative. */
     private class NativeBridge {
+        /** Nível de bateria e se está carregando, no formato "87,1" (vazio se indisponível). */
+        @JavascriptInterface
+        public String getBattery() {
+            Intent i = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (i == null) return "";
+            int level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+            int scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+            int status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+            boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+            if (level < 0 || scale <= 0) return "";
+            return Math.round(level * 100f / scale) + "," + (charging ? 1 : 0);
+        }
+
         @JavascriptInterface
         public void setAutoBrightness(final boolean on) {
             runOnUiThread(new Runnable() {
