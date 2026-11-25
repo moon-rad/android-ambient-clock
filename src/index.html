@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Relógio ambiente — protótipo</title>
 <meta name="relogio-build" content="dev">
 <script>
@@ -19,13 +19,19 @@ if(window.__fromCache){
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&family=Nunito:wght@200;300&display=swap" rel="stylesheet">
 <style>
-html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-#stage{position:fixed;inset:0;transition:filter 1.5s;overflow:hidden}
+html,body{margin:0;width:100%;height:100%;min-height:100vh;background:#000;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0;width:100%;height:100%;transition:filter 1.5s;overflow:hidden}
 canvas{position:absolute;left:0;top:0;display:block}
 #cvAurora,#cvNight{width:100%;height:100%}
+#batt{position:absolute;left:max(14px,2.2vw);bottom:max(12px,2.4vh);display:flex;align-items:center;gap:7px;font-size:12px;font-weight:300;letter-spacing:.04em;opacity:.45;pointer-events:none;text-shadow:0 1px 6px rgba(0,0,0,.6);transition:transform 3s ease}
+#batt[hidden]{display:none}
+#battIco{position:relative;width:20px;height:9px;border:1px solid currentColor;border-radius:2px;box-sizing:border-box}
+#battIco::after{content:'';position:absolute;right:-3px;top:2px;width:2px;height:3px;background:currentColor;border-radius:0 1px 1px 0}
+#battFill{position:absolute;left:1px;top:1px;bottom:1px;width:50%;background:currentColor;border-radius:1px}
+body[data-scene=night] #batt{color:#ff9d57;opacity:.35;text-shadow:none}
 #cvPixel{image-rendering:pixelated}
 #clock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 2px 26px rgba(0,0,0,.35);transition:transform 3s ease}
-#time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,1));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,.8));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 #date{font-size:13px;font-weight:300;opacity:.85;margin-top:.6em}
 #wx{font-size:min(4vw,5.8vh);font-weight:300;margin-top:.7em;padding:.2em .85em;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,.28);opacity:.8;white-space:nowrap}
 #wx small{opacity:.6;font-size:.7em;margin-left:.5em}
@@ -60,14 +66,15 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
     <div id="date"></div>
     <div id="wx"></div>
   </div>
+  <div id="batt" hidden><span id="battIco"><i id="battFill"></i></span><span id="battPct"></span></div>
   <div id="hint"></div>
   <button id="gear" aria-label="Ajustes">⚙</button>
   <div id="panel" hidden>
     <div class="card">
       <h3>Cena</h3>
       <div class="row" id="rowScene"></div>
-      <h3>Tamanho do relógio <span id="clkLbl">(100%)</span></h3>
-      <input type="range" id="clk" min="60" max="140" step="5" value="100">
+      <h3>Tamanho do relógio <span id="clkLbl">(80%)</span></h3>
+      <input type="range" id="clk" min="50" max="140" step="5" value="80">
       <h3>Hora de teste <span id="simLbl"></span></h3>
       <input type="range" id="sim" min="0" max="1439" value="720">
       <div class="row"><button class="chip" id="simNow">Hora real</button></div>
@@ -171,13 +178,64 @@ function phase(m){
   }
   return {d,g,t,b};
 }
+/* ---------- Lua: fase e trajeto reais (cálculo local, baixa precisão) ---------- */
+const D2R = Math.PI/180;
+function moonCalc(ms){
+  const d = ms/864e5 + 2440587.5 - 2451545.0;
+  const L = 218.316+13.176396*d, M = 134.963+13.064993*d, F = 93.272+13.229350*d;
+  const lon = (L+6.289*Math.sin(M*D2R))*D2R, lat = 5.128*Math.sin(F*D2R)*D2R;
+  const eps = (23.4393-3.563e-7*d)*D2R;
+  const ra = Math.atan2(Math.sin(lon)*Math.cos(eps)-Math.tan(lat)*Math.sin(eps), Math.cos(lon));
+  const dec = Math.asin(Math.sin(lat)*Math.cos(eps)+Math.cos(lat)*Math.sin(eps)*Math.sin(lon));
+  const ha = (280.46061837+360.98564736629*d+CFG.lon)*D2R - ra, phi = CFG.lat*D2R;
+  const alt = Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(ha))/D2R;
+  const g = (357.529+0.98560028*d)*D2R;
+  const ls = (280.459+0.98564736*d+1.915*Math.sin(g)+0.020*Math.sin(2*g))*D2R;
+  const psi = (((lon-ls)%(2*Math.PI))+2*Math.PI)%(2*Math.PI);   // 0 = nova, π = cheia
+  return {alt, psi};
+}
+/* nascer/pôr da lua em minutos relativos à meia-noite local de hoje (de -24h a +48h) */
+let MOON = {base:0, ev:[]};
+function moonDay(date){
+  const base = new Date(date.getFullYear(),date.getMonth(),date.getDate()).getTime();
+  const ev = [], step = 4, H0 = .125;
+  let prev = moonCalc(base-1440*6e4).alt;
+  for(let t=-1440+step; t<=2880; t+=step){
+    const a = moonCalc(base+t*6e4).alt;
+    if((prev<H0) !== (a<H0)){
+      const f = (H0-prev)/(a-prev);
+      ev.push({t: t-step+f*step, rise: a>=H0});
+    }
+    prev = a;
+  }
+  return {base, ev};
+}
+
 function bodies(m){
-  const {sr,ss} = ST; let sun=null, moon=null;
+  const {sr,ss} = ST; let sun=null, moon=null, psi=0;
   if(m>=sr-15 && m<=ss+15) sun = clamp((m-sr)/(ss-sr),-.03,1.03);
-  const nl = 1440-(ss-sr);
-  if(m>=ss-15) moon = clamp((m-ss)/nl,-.03,1.03);
-  else if(m<=sr+15) moon = clamp((m+1440-ss)/nl,-.03,1.03);
-  return {sun,moon};
+  const ev = MOON.ev;
+  for(let i=0;i<ev.length;i++){
+    if(!ev[i].rise) continue;
+    const r = ev[i].t; let s = r+720;
+    for(let j=i+1;j<ev.length;j++) if(!ev[j].rise){ s = ev[j].t; break; }
+    if(m>=r-15 && m<=s+15){ moon = clamp((m-r)/(s-r),-.03,1.03); break; }
+  }
+  if(moon!==null) psi = moonCalc(MOON.base+m*6e4).psi;
+  return {sun,moon,psi};
+}
+/* desenha a lua em pixel art com a fase real; de dia só aparece o lado iluminado */
+function drawMoon(c,x,y,r,psi,P,K){
+  const night = 1-P.d, vis = 1-K.g*.6, side = CFG.lat<0 ? -1 : 1;
+  const sx = Math.sin(psi)*side, sz = -Math.cos(psi), k = (1-Math.cos(psi))/2;
+  if(night*vis>.02){ c.globalAlpha = night*vis*.11*(.3+.7*k); c.fillStyle='rgb(220,228,255)'; disc(c,x,y,r*2+1); }
+  for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+    const nx = dx/(r+.5), ny = dy/(r+.5), q = nx*nx+ny*ny; if(q>1) continue;
+    if(nx*sx+Math.sqrt(1-q)*sz>0){ c.globalAlpha = (.6+.4*night)*vis; c.fillStyle='rgb(240,242,255)'; }
+    else { c.globalAlpha = night*vis*.35; c.fillStyle='rgb(92,102,140)'; }
+    c.fillRect(x+dx,y+dy,1,1);
+  }
+  c.globalAlpha = 1;
 }
 
 /* ---------- Tempo ---------- */
@@ -219,15 +277,7 @@ function drawPixel(dt){
     c.fillStyle = rgb(col,.18*(1-K.g*.6)); disc(c,x,y,7);
     c.fillStyle = rgb(col,1-K.g*.5); disc(c,x,y,5);
   }
-  if(B.moon!==null){
-    const x=arcX(B.moon), y=arcY(B.moon), a=(1-P.d)*(1-K.g*.7);
-    if(a>.02){
-      c.globalAlpha = a; c.fillStyle='rgb(236,239,255)'; disc(c,x,y,4);
-      c.fillStyle = rgb(skyAt(y)); disc(c,x+2,y-1,3);
-      c.globalAlpha = a*.12; c.fillStyle='rgb(220,228,255)'; disc(c,x,y,9);
-      c.globalAlpha = 1;
-    }
-  }
+  if(B.moon!==null) drawMoon(c, arcX(B.moon), arcY(B.moon), 5, B.psi, P, K);
   // nuvens
   const tint = mixC(mixC([66,76,118],[255,255,255],P.d),[255,196,170],P.g*.8);
   const cc = mixC(tint, mixC([70,74,86],[150,155,165],P.d), K.g);
@@ -272,6 +322,80 @@ function drawPixel(dt){
 
 /* ---------- Cena: Lo-fi (quartinho aconchegante) ---------- */
 const dk = (c,f) => [c[0]*f, c[1]*f, c[2]*f];
+/* ---------- Gatinho: dorme, mas de vez em quando faz alguma coisa ---------- */
+const CAT = {act:'sleep', t0:0, dur:0, next:30};
+const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, stretch:4.5, watch:26, walk:18};
+function catPick(){
+  const m = minutesNow(), wet = WX.kind==='rain'||WX.kind==='storm', calm = m<330;
+  const w = {tail:30, ear:20, eye:wet?24:8, stretch:calm?6:15, watch:wet?22:10, walk:calm?3:12};
+  if(PW-40-48 < 10) w.walk = 0;   /* sem espaço na mesa (tela estreita) */
+  let r = Math.random()*Object.values(w).reduce((a,b)=>a+b,0);
+  for(const k in w){ r -= w[k]; if(r<=0) return k; }
+  return 'tail';
+}
+function catStart(act){ CAT.act = act; CAT.t0 = TT; CAT.dur = CAT_DUR[act]||0; }
+function catUpdate(){
+  if(CAT.act==='sleep'){ if(TT>=CAT.next) catStart(catPick()); }
+  else if(TT-CAT.t0>=CAT.dur){ CAT.act='sleep'; CAT.next = TT + (minutesNow()<330 ? 150+Math.random()*180 : 50+Math.random()*130); }
+}
+function drawCat(c,dy,lum){
+  catUpdate();
+  const a = CAT.act, t = TT-CAT.t0, cx0 = PW-40;
+  const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum));
+  const eyeC = 'rgb(150,210,90)', pink = 'rgb(240,150,160)';
+  let ox = cx0, fl = false;
+  const F = (col,x,y,w,h) => { c.fillStyle = col; c.fillRect(fl ? ox+16-x-w : ox+x, y, w, h); };
+  let zzz = false;
+  if(a==='stretch'){
+    const e = Math.min(1, Math.sin(Math.PI*clamp(t/CAT.dur,0,1))*1.6);
+    const k = Math.round(3*e), k2 = Math.round(e), up = Math.round(4*e), fh = 5-Math.round(2*e);
+    F(fur,0,dy-fh,7,fh); F(fur,7,dy-5-up,7,5+up);
+    F(fur,-3-k,dy-6+k2,5,5-k2); F(fur,-3-k,dy-8+k2,1,2); F(fur,1-k,dy-8+k2,1,2);
+    F(fur,14,dy-3-Math.round(3*e),3,2); F(fur,16,dy-5-Math.round(5*e),1,3);
+    F(nose,-2-k,dy-4+k2,2,1); F(pink,-3-k,dy-3+k2,1,1);
+    if(e>.5){ F(fur2,-3-k,dy-4+k2,2,1); }   /* olhinho apertado */
+  } else if(a==='watch'){
+    ox = cx0+2;
+    const ty = Math.round(Math.sin(t*2.5)), bob = Math.round(Math.sin(t*.7)*.6);
+    F(fur,0,dy-5,9,5); F(fur,1,dy-10,6,6); F(fur,0,dy-15+bob,6,5);
+    F(fur,0,dy-17+bob,1,2); F(fur,4,dy-17+bob,1,2);
+    F(eyeC,1,dy-13+bob,1,1); F(eyeC,3,dy-13+bob,1,1); F(pink,0,dy-12+bob,1,1);
+    F(fur2,3,dy-9,1,3); F(fur,9,dy-2,4,2); F(fur,12,dy-4+ty,1,3);
+  } else if(a==='walk'){
+    const D = cx0-48; let p, moving = true;
+    if(t<7) p = t/7; else if(t<10){ p = 1; moving = false; } else if(t<17) p = 1-(t-10)/7; else { p = 0; moving = false; }
+    fl = t>=10;
+    ox = cx0 - Math.round(p*D);
+    const st = moving ? Math.floor(t*6)%2 : 0, hd = (t>=7&&t<10) ? 2 : 0, sw = Math.round(Math.sin(t*5));
+    F(fur,3,dy-9,12,4);
+    F(fur,3,dy-5,2,5-st); F(fur,6,dy-5,2,4+st); F(fur,11,dy-5,2,4+st); F(fur,14,dy-5,2,5-st);
+    F(fur2,6,dy-9,1,4); F(fur2,10,dy-9,1,4);
+    F(fur,-2,dy-11+hd,5,5); F(fur,-2,dy-13+hd,1,2); F(fur,2,dy-13+hd,1,2);
+    F(nose,-1,dy-9+hd,1,1); F(pink,-2,dy-8+hd,1,1);
+    F(fur,15,dy-10,2,2); F(fur,16+sw,dy-14,1,5);
+  } else {
+    const br = Math.round((Math.sin(TT*1.7)+1)/2);
+    F(fur,0,dy-5,14,5); F(fur,1,dy-6-br,12,1+br);
+    F(fur,-3,dy-6,5,5);
+    let earL = 2; if(a==='ear' && Math.floor(t*8)%2===0) earL = 1;
+    F(fur,-3,dy-6-earL,1,earL); F(fur,1,dy-8,1,2);
+    if(a==='ear' && Math.floor(t*8)%2===1) F(fur,1,dy-9,1,1);
+    F(fur,14,dy-3,3,2);
+    const ty = a==='tail' ? Math.round(Math.sin(t*7)*1.6) : 0;
+    F(fur,16,dy-5+ty,1,3); if(ty!==0) F(fur,17,dy-4+ty,1,2);
+    F(fur2,4,dy-6-br,1,2+br); F(fur2,8,dy-6-br,1,2+br);
+    F(nose,-2,dy-4,2,1); F(pink,-3,dy-3,1,1);
+    if(a==='eye' && t>.5 && t<CAT.dur-.9){ F(eyeC,-2,dy-5,1,1); }
+    else zzz = true;
+  }
+  if(zzz){
+    const zt = (TT*1.6)%6;
+    c.fillStyle = `rgba(255,255,255,${.75*(1-zt/6)})`;
+    const zx = Math.round(cx0-4+zt*.8), zy = Math.round(dy-11-zt*1.6);
+    c.fillRect(zx,zy,3,1); c.fillRect(zx+1,zy+1,1,1); c.fillRect(zx,zy+2,3,1);
+  }
+}
+
 function drawLofi(dt){
   const c = px; TT += dt;
   const m = minutesNow(), P = phase(m), B = bodies(m), K = KINDS[WX.kind];
@@ -316,10 +440,7 @@ function drawLofi(dt){
     c.fillStyle = rgb(col,.14*(1-K.g*.6)); disc(c,x,y,7);
     c.fillStyle = rgb(col,1-K.g*.5); disc(c,x,y,4);
   }
-  if(B.moon!==null){
-    const x=ax(B.moon), y=ay(B.moon), a=(1-P.d)*(1-K.g*.7);
-    if(a>.02){ c.globalAlpha=a; c.fillStyle='rgb(236,239,255)'; disc(c,x,y,3); c.fillStyle=rgb(skyAt(y)); disc(c,x+2,y-1,2); c.globalAlpha=1; }
-  }
+  if(B.moon!==null) drawMoon(c, ax(B.moon), ay(B.moon), 4, B.psi, P, K);
   const tint = mixC(mixC([66,76,118],[255,255,255],P.d),[255,196,170],P.g*.8);
   const cc = mixC(tint, mixC([70,74,86],[150,155,165],P.d), K.g);
   c.fillStyle = rgb(cc,.95);
@@ -367,18 +488,7 @@ function drawLofi(dt){
   c.fillStyle = rgb(dk([120,70,80],lum)); c.fillRect(bx,dy-3,10,3);
   c.fillStyle = rgb(dk([70,100,120],lum)); c.fillRect(bx+1,dy-6,9,3);
   c.fillStyle = rgb(dk([150,130,70],lum)); c.fillRect(bx,dy-9,8,3);
-  // gatinho dormindo
-  const cx = PW-40, br = Math.round((Math.sin(TT*1.7)+1)/2), fur = dk([214,140,70],lum);
-  c.fillStyle = rgb(fur); c.fillRect(cx,dy-5,14,5); c.fillRect(cx+1,dy-6-br,12,1+br);
-  c.fillRect(cx-3,dy-6,5,5); c.fillRect(cx-3,dy-8,1,2); c.fillRect(cx+1,dy-8,1,2);
-  c.fillRect(cx+14,dy-3,3,2); c.fillRect(cx+16,dy-5,1,3);
-  c.fillStyle = rgb(dk([160,92,42],lum)); c.fillRect(cx+4,dy-6-br,1,2+br); c.fillRect(cx+8,dy-6-br,1,2+br);
-  c.fillStyle = rgb(dk([60,36,30],lum)); c.fillRect(cx-2,dy-4,2,1);
-  c.fillStyle = 'rgb(240,150,160)'; c.fillRect(cx-3,dy-3,1,1);
-  const zt = (TT*1.6)%6;
-  c.fillStyle = `rgba(255,255,255,${.75*(1-zt/6)})`;
-  const zx = Math.round(cx-4+zt*.8), zy = Math.round(dy-11-zt*1.6);
-  c.fillRect(zx,zy,3,1); c.fillRect(zx+1,zy+1,1,1); c.fillRect(zx,zy+2,3,1);
+  drawCat(c,dy,lum);
   // plantinha balançando
   const ptx = PW-14, sw2 = Math.round(Math.sin(TT*1.2));
   c.fillStyle = rgb(dk([176,92,62],lum)); c.fillRect(ptx,dy-5,7,5); c.fillRect(ptx-1,dy-6,9,1);
@@ -480,11 +590,32 @@ function drawNight(dt){
   }
 }
 
+/* ---------- Bateria (nível discreto no canto) ---------- */
+let BATT = null;
+function renderBatt(){
+  const el = $('batt');
+  if(!BATT){ el.hidden = true; return; }
+  el.hidden = false;
+  $('battFill').style.width = `calc((100% - 2px) * ${clamp(BATT.level,0,100)/100})`;
+  $('battPct').textContent = BATT.level + '%' + (BATT.charging ? ' ⚡' : '');
+}
+async function readBatt(){
+  try{
+    if(window.RelogioNative && typeof RelogioNative.getBattery==='function'){
+      const s = String(RelogioNative.getBattery()||'');
+      if(s.indexOf(',')>0){ const p = s.split(','); BATT = {level:+p[0], charging:p[1]==='1'}; }
+    } else if(navigator.getBattery){
+      const b = await navigator.getBattery(); BATT = {level:Math.round(b.level*100), charging:b.charging};
+    }
+  }catch(e){}
+  renderBatt();
+}
+
 /* ---------- Relógio ---------- */
 let lastDate = '';
 function tickClock(){
   const d = new Date();
-  if(d.getDate()!==stDay){ stDay=d.getDate(); ST=sunTimes(d); }
+  if(d.getDate()!==stDay){ stDay=d.getDate(); ST=sunTimes(d); MOON=moonDay(d); }
   let H,M;
   if(SIM!==null){ H=Math.floor(SIM/60); M=Math.floor(SIM%60); } else { H=d.getHours(); M=d.getMinutes(); }
   $('hh').textContent = String(H).padStart(2,'0');
@@ -559,7 +690,7 @@ $('stage').addEventListener('click', e => {
 });
 
 /* anti-burn-in: desloca o relógio alguns pixels a cada minuto */
-setInterval(()=>{ $('clock').style.transform = `translate(${Math.round((Math.random()-.5)*16)}px,${Math.round((Math.random()-.5)*16)}px)`; }, 60000);
+setInterval(()=>{ const t = `translate(${Math.round((Math.random()-.5)*16)}px,${Math.round((Math.random()-.5)*16)}px)`; $('clock').style.transform = t; $('batt').style.transform = t; }, 60000);
 
 /* ---------- Loop ---------- */
 let last = performance.now(), accP = 0, accA = 0, accN = 0, accC = 0;
@@ -575,12 +706,13 @@ function resize(){ sizePixel(); sizeAurora(); sizeNight(); }
 /* tamanho do relógio (guardado no aparelho) */
 function setClk(v){ document.documentElement.style.setProperty('--clk', v/100); $('clkLbl').textContent = `(${v}%)`; try{ localStorage.setItem('clk', v); }catch(e){} }
 $('clk').oninput = e => setClk(+e.target.value);
-try{ const v = +localStorage.getItem('clk'); if(v>=60 && v<=140){ $('clk').value = v; setClk(v); } }catch(e){}
+try{ const v = +localStorage.getItem('clk'); if(v>=50 && v<=140){ $('clk').value = v; setClk(v); } }catch(e){}
 addEventListener('resize', resize);
 resize(); setScene(scene,false); updateWx(); tickClock(); showGear();
 $('simLbl').textContent = '(real)';
-loadWeather(); setInterval(loadWeather, 15*60*1000);
+loadWeather(); setInterval(loadWeather, 15*60*1000); setInterval(()=>{ if(!WX.live) loadWeather(); }, 2*60*1000); /* sem dados reais? tenta de novo a cada 2 min */
 requestAnimationFrame(frame);
+readBatt(); setInterval(readBatt, 30000);
 window.__relogioOk = true; /* sinal de que a página iniciou sem erros */
 
 /* ---------- Atualização pela web (só no app) ---------- */
