@@ -7,11 +7,12 @@ Um relógio ambiente de mesa/criado-mudo para celulares Android antigos. Transfo
 ## Features
 
 - **Four scenes**, switch by tapping the screen:
-  - **Window**: pixel-art window with sun, moon, stars, clouds, rain, storm and fog.
+  - **Window**: pixel-art window with sun, moon (real phase and real moonrise/moonset, also visible by day), stars, clouds, rain, storm and fog.
   - **Lo-fi room**: cozy desk with a sleeping cat, steaming mug, lamp that turns on at night and a window showing the real sky.
   - **Aurora**: flowing particle art whose colors change through the day (gold/green morning, cyan/blue afternoon, pink/orange sunrise and sunset, violet/magenta night).
-  - **Night**: dim amber clock for the bedroom.
-- **Follows the sun**: sunrise/sunset computed locally for your coordinates, no API needed.
+  - **Night**: dim amber clock for the bedroom over a field of softly twinkling stars.
+- **Follows the sun and the moon**: sunrise/sunset and the moon's phase and path computed locally for your coordinates, no API needed.
+- **Battery level** shown discreetly in the bottom-left corner (with a bolt while charging).
 - **Live weather** and rain warning from [Open-Meteo](https://open-meteo.com) (no API key).
 - **Auto brightness** using the phone's light sensor, plus automatic dimming from 11pm to 6am.
 - Screen always on, immersive full screen, follows screen rotation, fonts bundled (works offline).
@@ -42,7 +43,7 @@ The signed-with-debug-key APK is meant for personal use. Fork it and make it you
 
 ## Português
 
-Relógio ambiente para Android com quatro cenas (Janela em pixel art, quartinho lo-fi, Aurora e Noturno), cores que acompanham o nascer e o pôr do sol, clima ao vivo, brilho automático pelo sensor de luz, tela sempre ligada e rotação automática. Sem anúncios, sem conta e sem loja de apps.
+Relógio ambiente para Android com quatro cenas (Janela em pixel art, quartinho lo-fi, Aurora e Noturno com estrelas), cores que acompanham o nascer e o pôr do sol, lua com fase e trajeto reais, nível da bateria no canto, clima ao vivo, brilho automático pelo sensor de luz, tela sempre ligada e rotação automática. Sem anúncios, sem conta e sem loja de apps.
 
 **Instalar:** abra **Releases**, baixe `relogio-ambiente.apk` no celular e instale (o Android pede, uma vez, para permitir fontes desconhecidas).
 
