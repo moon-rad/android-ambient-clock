@@ -31,7 +31,7 @@ canvas{position:absolute;left:0;top:0;display:block}
 body[data-scene=night] #batt{color:#ff9d57;opacity:.35;text-shadow:none}
 #cvPixel{image-rendering:pixelated}
 #clock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 2px 26px rgba(0,0,0,.35);transition:transform 3s ease}
-#time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,1));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,.8));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 #date{font-size:13px;font-weight:300;opacity:.85;margin-top:.6em}
 #wx{font-size:min(4vw,5.8vh);font-weight:300;margin-top:.7em;padding:.2em .85em;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,.28);opacity:.8;white-space:nowrap}
 #wx small{opacity:.6;font-size:.7em;margin-left:.5em}
@@ -73,8 +73,8 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
     <div class="card">
       <h3>Cena</h3>
       <div class="row" id="rowScene"></div>
-      <h3>Tamanho do relógio <span id="clkLbl">(100%)</span></h3>
-      <input type="range" id="clk" min="60" max="140" step="5" value="100">
+      <h3>Tamanho do relógio <span id="clkLbl">(80%)</span></h3>
+      <input type="range" id="clk" min="50" max="140" step="5" value="80">
       <h3>Hora de teste <span id="simLbl"></span></h3>
       <input type="range" id="sim" min="0" max="1439" value="720">
       <div class="row"><button class="chip" id="simNow">Hora real</button></div>
@@ -706,7 +706,7 @@ function resize(){ sizePixel(); sizeAurora(); sizeNight(); }
 /* tamanho do relógio (guardado no aparelho) */
 function setClk(v){ document.documentElement.style.setProperty('--clk', v/100); $('clkLbl').textContent = `(${v}%)`; try{ localStorage.setItem('clk', v); }catch(e){} }
 $('clk').oninput = e => setClk(+e.target.value);
-try{ const v = +localStorage.getItem('clk'); if(v>=60 && v<=140){ $('clk').value = v; setClk(v); } }catch(e){}
+try{ const v = +localStorage.getItem('clk'); if(v>=50 && v<=140){ $('clk').value = v; setClk(v); } }catch(e){}
 addEventListener('resize', resize);
 resize(); setScene(scene,false); updateWx(); tickClock(); showGear();
 $('simLbl').textContent = '(real)';
