@@ -147,7 +147,7 @@ const T = {
     gpsDenied:'Permissão negada. Libere a localização nas permissões do app e tente de novo.', gpsFail:'Não consegui obter a localização.',
     noCity:'Nenhuma cidade encontrada. Confira o país e o nome.', searching:'Buscando…', offline:'Sem internet para buscar cidades agora.', picked:'Pronto: agora mostrando ',
     language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
-    sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno',
+    sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno', sc_sala:'Sala de Natal', sc_vila:'Vila nevada',
     wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade',
     rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt',
     xmas:'Natal 🎄', xmas_auto:'Auto (1 dez – 6 jan)', xmas_on:'Ligado', xmas_off:'Desligado',
@@ -160,7 +160,7 @@ const T = {
     gpsDenied:'Permission denied. Allow location in the app permissions and try again.', gpsFail:'Could not get the location.',
     noCity:'No city found. Check the country and the name.', searching:'Searching…', offline:'No internet to search cities right now.', picked:'Done: now showing ',
     language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, a coffee via Pix (Brazil) is welcome. Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
-    sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night',
+    sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night', sc_sala:'Christmas room', sc_vila:'Snowy village',
     wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm',
     rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en',
     xmas:'Christmas 🎄', xmas_auto:'Auto (Dec 1 – Jan 6)', xmas_on:'On', xmas_off:'Off',
@@ -172,7 +172,7 @@ function resolveLang(){ LANG = (LANGPREF==='pt'||LANGPREF==='en') ? LANGPREF : (
 resolveLang();
 const tr = k => T[LANG][k];
 let luxKey = 'lux_def';
-const SCENES = [['window'],['lofi'],['aurora'],['night']];
+const SCENES = [['window'],['lofi'],['aurora'],['night'],['sala'],['vila']];   /* sala e vila: só no modo Natal */
 const sceneName = k => tr('sc_'+k);
 
 /* ---------- Utilidades ---------- */
@@ -428,7 +428,7 @@ function xmasOn(){
 function buildXmasChips(){
   const row = $('rowXmas'); row.textContent = '';
   ['auto','on','off'].forEach(k=>{ const b = document.createElement('button'); b.className = 'chip'+(k===XMASPREF?' sel':''); b.dataset.k = k; b.textContent = tr('xmas_'+k);
-    b.onclick = () => { XMASPREF = k; try{ localStorage.setItem('relogio.xmas',k); }catch(e){} row.querySelectorAll('.chip').forEach(x=>x.classList.toggle('sel',x.dataset.k===k)); };
+    b.onclick = () => { XMASPREF = k; try{ localStorage.setItem('relogio.xmas',k); }catch(e){} row.querySelectorAll('.chip').forEach(x=>x.classList.toggle('sel',x.dataset.k===k)); if(typeof buildChips==='function'){ if(XSCENES.includes(scene) && !xmasOn()) setScene('window',false); buildChips(); } };
     row.appendChild(b); });
 }
 function buildSeaChips(){
@@ -685,7 +685,7 @@ function drawCat(c,dy,lum){
   catUpdate();
   const a = CAT.act, t = TT-CAT.t0, cx0 = PW-40;
   const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk([238,210,170],lum));
-  const eyeC = 'rgb(22,16,16)', pink = 'rgb(240,150,160)', tongueC = 'rgb(236,96,124)';   /* olhos: pontinhos pretos */
+  const eyeC = 'rgb(22,16,16)', pink = rgb(dk([240,150,160],lum)), tongueC = rgb(dk([236,96,124],lum));   /* olhos: pontinhos pretos */
   let ox = cx0, fl = false;
   const F = (col,x,y,w,h) => { c.fillStyle = col; c.fillRect(fl ? ox+16-x-w : ox+x, y, w, h); };
   /* gato sentado (de lado, virado para a esquerda).
@@ -713,7 +713,7 @@ function drawCat(c,dy,lum){
     F(fur,0,dy-fh,7,fh); F(fur,7,dy-5-up,7,5+up);
     F(fur,-3-k,dy-6+k2,5,5-k2); F(fur,-3-k,dy-8+k2,1,2); F(fur,1-k,dy-8+k2,1,2);
     F(fur,14,dy-3-Math.round(3*e),3,2); F(fur,16,dy-5-Math.round(5*e),1,3);
-    F(nose,-2-k,dy-4+k2,2,1); F(pink,-3-k,dy-3+k2,1,1);
+    F(nose,-2-k,dy-4+k2,2,1);
     if(e>.5){ F(fur2,-3-k,dy-4+k2,2,1); }   /* olhinho apertado */
   } else if(a==='sentar'){
     ox = cx0+2;
@@ -779,7 +779,7 @@ function drawCat(c,dy,lum){
     F(fur,16,dy-5+ty,1,3); if(ty!==0) F(fur,17,dy-4+ty,1,2);
     F(fur2,4,dy-6-br,1,2+br); F(fur2,8,dy-6-br,1,2+br);
     if(a==='bocejo' && t>.3 && t<CAT.dur-.3){ F('rgb(190,70,90)',-3,dy-4,2,2); }   /* boca aberta */
-    else { F(nose,-2,dy-4,2,1); F(pink,-3,dy-3,1,1); }
+    else { F(nose,-2,dy-4,2,1); }
     if(a==='eye' && t>.5 && t<CAT.dur-.9){ F(eyeC,-2,dy-5,1,1); }
     else if(a!=='bocejo') zzz = true;
   }
@@ -918,7 +918,7 @@ function drawLofi(dt){
     const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]], L = [[cxm-3,dy-3],[cxm+3,dy-3],[cxm-1,dy-5],[cxm+1,dy-5],[cxm-2,dy-7],[cxm+2,dy-7],[cxm,dy-9]];
     L.forEach(([lx,ly],i)=>{ const lit = Math.floor(TT*1.6+i*.55)%2===0; c.fillStyle = rgb(lc[i%4], lit?1:.3); c.fillRect(lx,ly,1,1); });
     const sp = .7+.3*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cxm,dy-14,1,1); c.fillRect(cxm-1,dy-13,3,1); c.fillRect(cxm,dy-12,1,1);
-    if(wide){ c.fillStyle = rgb(dk([210,60,60],lum)); c.fillRect(tx-3,dy-3,3,3); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(tx-2,dy-3,1,3); c.fillRect(tx-3,dy-2,3,1);
+    if(wide){ c.fillStyle = rgb(dk([210,60,60],lum)); c.fillRect(tx-5,dy-4,5,4); c.fillStyle = rgb(dk([255,214,120],lum)); c.fillRect(tx-3,dy-4,1,4); c.fillRect(tx-4,dy-5,3,1);
       c.fillStyle = rgb(dk([70,120,210],lum)); c.fillRect(tx+9,dy-2,3,2); }
     if(P.d<.65){ c.fillStyle = `rgba(255,200,120,${.07*(1-P.d)})`; disc(c,cxm,dy-6,8); }
   }
@@ -940,6 +940,162 @@ function drawLofi(dt){
     c.fillStyle = `rgba(255,196,110,${.08*I})`; disc(c,gx,gy,17);
     c.fillStyle = `rgba(255,210,130,${.12*I})`; disc(c,gx,gy,9);
   }
+}
+
+/* ---------- Cenas de Natal (só aparecem com o modo Natal ativo): Sala de Natal e Vila nevada ---------- */
+const XSCENES = ['sala','vila'];
+const sceneList = () => SCENES.map(x=>x[0]).filter(k => !XSCENES.includes(k) || xmasOn());
+const hr = i => { const s = Math.sin(i*127.1+311.7)*43758.5453; return s-Math.floor(s); };
+function snowFall(c,arr,dt,x0,y0,w,h,n,alpha){
+  while(arr.length<n) arr.push({x:Math.random()*w,y:Math.random()*h,v:3+Math.random()*5,s:Math.random()<.18?2:1,p:Math.random()*6});
+  arr.length = Math.min(arr.length,n);
+  for(const f of arr){
+    f.y += f.v*dt; f.x += Math.sin(TT*.8+f.p)*.25;
+    if(f.y>=h){ f.y = 0; f.x = Math.random()*w; }
+    if(f.x<0) f.x += w; if(f.x>=w) f.x -= w;
+    c.fillStyle = `rgba(255,255,255,${alpha*(f.s>1?1:.75)})`; c.fillRect(x0+Math.floor(f.x),y0+Math.floor(f.y),f.s,f.s);
+  }
+}
+const SN1 = [], SN3 = [], SMOKE = [], NOTES = [], SALA = {act:'sleep', t0:null, dur:24};
+const SALA_NEXT = {sleep:['look',9], look:['play',13], play:['sleep',24]};
+const GRID = (c,rows,x,y,pal) => { for(let j=0;j<rows.length;j++){ const r = rows[j]; for(let i=0;i<r.length;i++){ const s = pal[r[i]]; if(s){ c.fillStyle = s; c.fillRect(x+i,y+j,1,1); } } } };
+
+/* Sala: árvore piscando, lareira com fogo e meias, presentes, neve na janela; o gato dorme, olha as luzes e brinca com uma bolinha */
+function drawSala(dt){
+  const c = px; TT += dt; SEA = 'winter'; c.globalAlpha = 1;
+  const m = minutesNow(), P = seaSky(phase(m),'winter'), lum = .66+.34*P.d, dy = Math.round(PH*.88), land = PW > PH*1.2;
+  const C = (r,g,b) => rgb(dk([r,g,b],lum)), R = (x,y,w,h,s) => { c.fillStyle = s; c.fillRect(Math.round(x),Math.round(y),w,h); };
+  const wood = C(130,88,54), woodL = C(160,112,70), gold = 'rgb(240,200,90)';
+  /* parede com papel listrado, rodapé e chão */
+  R(0,0,PW,PH,C(88,42,54)); for(let x=3;x<PW;x+=8) R(x,0,2,dy,C(100,50,62));
+  R(0,dy-4,PW,4,C(70,36,40)); R(0,dy-5,PW,1,C(120,70,60));
+  R(0,dy,PW,PH-dy,C(122,82,52)); for(let y=dy+3;y<PH;y+=5) R(0,y,PW,1,C(100,66,42));
+  /* janela com neve caindo */
+  const ww = land ? Math.round(PW*.24) : Math.round(PW*.54), wx = Math.round((PW-ww)/2), wy = land ? 5 : Math.round(PH*.06), wh = land ? dy-24-wy : Math.round(PH*.40);
+  R(wx-2,wy-2,ww+4,wh+4,wood);
+  for(let i=0;i<wh;i++){ c.fillStyle = rgb(mixC(P.t,P.b,i/wh)); c.fillRect(wx,wy+i,ww,1); }
+  if(P.d<.5){ for(let i=0;i<10;i++) R(wx+Math.floor(hr(i)*ww),wy+Math.floor(hr(i+9)*wh*.55),1,1,'rgba(255,255,255,.7)');
+    c.fillStyle = 'rgb(240,236,212)'; disc(c,wx+Math.round(ww*.72),wy+Math.round(wh*.2),3); }
+  for(let x=0;x<ww;x++){ const hh = 7+Math.round(3*Math.sin(x*.14)+2*Math.sin(x*.31)); R(wx+x,wy+wh-hh,1,hh,C(206,218,240)); }
+  snowFall(c,SN1,dt,wx,wy,ww,wh,Math.max(8,Math.round(ww*wh/110)),.9);
+  R(wx+Math.floor(ww/2)-1,wy,2,wh,wood); R(wx,wy+Math.round(wh*.55),ww,2,wood); R(wx-4,wy+wh+2,ww+8,2,woodL);
+  /* árvore */
+  const cx = land ? Math.round(PW*.2) : 22, tb = dy+3, H = Math.min(46,dy-14), ty = tb-H;
+  if(P.d<.7){ c.fillStyle = `rgba(255,200,120,${.05*(1-P.d)})`; disc(c,cx,tb-Math.round(H*.45),26); }
+  R(cx-2,tb-4,4,4,C(96,62,40));
+  const g1 = C(34,120,70), g2 = C(24,92,54), g3 = C(48,142,84);
+  for(let i=0;i<H-4;i++){ const w = 3+(i%10)+Math.floor(i/10)*3; R(cx-Math.floor(w/2),ty+3+i,w,1,(i%10<2)?g3:(i%10>6?g2:g1)); }
+  const orn = [[-2,10,[230,60,60]],[3,15,[250,200,70]],[-6,21,[90,150,240]],[5,25,[240,120,190]],[-1,29,[230,60,60]],[7,34,[250,200,70]],[-8,36,[90,150,240]],[1,39,[240,120,190]],[-4,16,[250,200,70]]];
+  for(const [ox,oy,col] of orn){ R(cx+ox,ty+oy,2,2,rgb(col)); R(cx+ox,ty+oy,1,1,'rgba(255,255,255,.75)'); }
+  const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]];
+  for(let k=0;k<16;k++){ const ly = 4+Math.floor(hr(k)*(H-10)), w = 3+(ly%10)+Math.floor(ly/10)*3, lx = cx+Math.round((hr(k+20)-.5)*w*.85), lit = Math.floor(TT*1.6+k*.7)%2===0;
+    R(lx,ty+3+ly,1,1,rgb(lc[k%4],lit?1:.3)); if(lit){ c.fillStyle = rgb(lc[k%4],.14); c.fillRect(lx-1,ty+3+ly-1,3,3); } }
+  const sp = .65+.35*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cx,ty-1,1,4); c.fillRect(cx-1,ty,3,1); c.fillRect(cx-2,ty+1,5,1);
+  /* presentes */
+  const gift = (x,w,h,col,rib) => { R(x,tb-h,w,h,rgb(dk(col,lum))); R(x+Math.floor(w/2),tb-h,1,h,rib); R(x,tb-Math.ceil(h/2),w,1,rib); R(x+Math.floor(w/2)-1,tb-h-1,3,1,rib); };
+  gift(cx-17,7,6,[200,50,50],gold); gift(cx+11,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-9,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+5,5,4,[150,90,200],gold);
+  /* lareira */
+  const fw = 30, fh = 28, fx = land ? PW-fw-Math.round(PW*.12) : PW-fw-5, fb = dy+2;
+  R(fx,fb-fh,fw,fh,C(128,58,48));
+  for(let r=0;r<fh;r+=4){ R(fx,fb-fh+r,fw,1,C(100,44,38)); for(let k=((r/4)%2)*5;k<fw;k+=10) R(fx+k,fb-fh+r,1,4,C(100,44,38)); }
+  R(fx-3,fb-fh-3,fw+6,3,C(156,104,64)); R(fx-3,fb-fh,fw+6,1,C(110,70,44));
+  const ox0 = fx+6, ow = fw-12, oh = 17;
+  R(ox0,fb-oh,ow,oh,'rgb(24,12,10)'); R(ox0+1,fb-3,ow-2,3,C(96,60,34)); R(ox0+3,fb-5,ow-6,2,C(116,74,40));
+  for(let i=0;i<ow-2;i+=2){
+    const mid = Math.abs(i-(ow-2)/2)/((ow-2)/2), raw = 4+5*Math.abs(Math.sin(TT*5+i*1.7))+1.5*Math.sin(TT*9+i)+1.5*hr(i+Math.floor(TT*8)), h2 = Math.min(11,Math.max(2,Math.round(raw*(1-mid*.45)))), x2 = ox0+1+i;
+    R(x2,fb-5-h2,2,h2,'rgb(232,92,28)'); R(x2,fb-5-Math.round(h2*.65),2,Math.round(h2*.65),'rgb(255,168,48)'); R(x2,fb-5-Math.max(1,Math.round(h2*.3)),2,Math.max(1,Math.round(h2*.3)),'rgb(255,230,130)');
+  }
+  if(hr(Math.floor(TT*5))>.55){ const sk = (TT*13)%9; R(ox0+2+Math.floor(hr(Math.floor(TT*5)+3)*(ow-5)),fb-8-sk,1,1,'rgb(255,206,90)'); }   /* faísca estalando */
+  c.fillStyle = `rgba(255,150,60,${.06+.02*Math.sin(TT*7)})`; disc(c,fx+Math.round(fw/2),fb-8,30); c.fillStyle = `rgba(255,170,70,${.07+.02*Math.sin(TT*9)})`; disc(c,fx+Math.round(fw/2),fb-8,18);
+  R(fx-3,fb-fh-5,fw+6,2,C(36,110,64));
+  for(let i=0;i<8;i++) R(fx-2+i*5,fb-fh-5,1,1,rgb(lc[i%4],Math.floor(TT*1.6+i*.8)%2===0?1:.3));
+  const sock = [[210,50,50],[50,140,80],[70,110,210]];
+  sock.forEach((col,i)=>{ const sx = fx+3+i*10; R(sx,fb-fh+1,4,2,'rgb(244,244,244)'); R(sx,fb-fh+3,4,6,rgb(dk(col,lum))); R(sx-2,fb-fh+8,6,3,rgb(dk(col,lum))); R(sx-2,fb-fh+10,2,1,'rgb(244,244,244)'); });
+  /* tapete e gato */
+  const catx = Math.round((cx+13+fx)/2), cf = dy+6, ox = catx-8;
+  R(catx-17,dy+3,35,5,C(150,48,56)); R(catx-17,dy+3,35,1,gold); R(catx-17,dy+7,35,1,gold);
+  if(SALA.t0===null) SALA.t0 = TT;
+  if(TT-SALA.t0 > SALA.dur){ const [na,nd] = SALA_NEXT[SALA.act]; SALA.act = na; SALA.dur = nd; SALA.t0 = TT; }
+  const t = TT-SALA.t0, O = C(222,146,72), D = C(164,94,44), K = C(126,70,36), CR = C(244,218,178), PK = rgb(dk([240,150,160],lum));
+  const F2 = (s,x,y,w,h) => R(ox+x,cf+y,w,h,s);
+  if(SALA.act==='sleep'){
+    const br = Math.round((Math.sin(TT*1.7)+1)/2);
+    F2(O,0,-5,15,5); F2(O,1,-6-br,13,1+br); F2(K,0,-1,15,1);
+    F2(D,4,-6-br,1,3+br); F2(D,8,-6-br,1,3+br); F2(D,11,-6-br,1,3+br);
+    F2(O,-4,-6,6,6); F2(O,-4,-8,2,2); F2(O,0,-8,2,2); F2(D,-2,-6,2,1); F2(CR,-4,-2,3,2); F2(D,-3,-4,2,1);
+    const tw = Math.round(Math.sin(TT*.9)*1.4); F2(O,15,-3,4,2); F2(O,18,-5+tw,1,3);
+    const zt = (TT*1.6)%6; c.fillStyle = `rgba(255,255,255,${.75*(1-zt/6)})`; const zx = Math.round(ox-3+zt*.8), zy = Math.round(cf-9-zt*1.6); c.fillRect(zx,zy,3,1); c.fillRect(zx+1,zy+1,1,1); c.fillRect(zx,zy+2,3,1);
+  } else {
+    /* sentado olhando as luzes / brincando com a bolinha */
+    const play = SALA.act==='play', blink = (TT%4.2)<.15, sh = play ? 0 : (Math.floor(t*.5)%2 ? 1 : 0), ph = Math.sin(t*3.3), bx = ox-8-Math.round(8*Math.abs(Math.sin(t*1.1))), by = cf-2-(play ? Math.round(Math.abs(ph)*5) : 0);
+    const e = blink ? 'd' : 'e', rows = [".o......o.",".oo....oo.","oooooooooo","ooodoodooo","oooooooooo","ooooppoooo","occcccccco",".oooooooo.","..coooooo.","..cooooood","..cooooooo","..ccoooook","...kkkkkk."];
+    rows[4] = play ? "oooooooooo" : "oooooooooo";
+    GRID(c,rows,ox-1,cf-13,{o:O,d:D,k:K,c:CR,p:PK});
+    const ey = cf-13+4, e1 = ox-1+2-sh+(play&&bx<ox-12?-1:0), e2 = ox-1+7-sh+(play&&bx<ox-12?-1:0);
+    R(e1,ey,1,1,blink?D:'rgb(22,16,16)'); R(e2,ey,1,1,blink?D:'rgb(22,16,16)');
+    const sw = Math.round(Math.sin(TT*(play?6:1.6))*(play?2:1)); F2(O,10,-3,3,2); for(let i=0;i<5;i++) F2(i>3?D:O,12+Math.round(sw*(i+1)/5),-4-i,2,1);
+    if(play){ if(ph>.6){ F2(O,-4,-4,4,2); F2(CR,-4,-4,2,2); } else { F2(O,-1,-3,2,3); } 
+      R(bx,by-2,3,3,'rgb(226,60,60)'); R(bx,by-2,1,1,'rgba(255,255,255,.85)'); R(bx+1,by-3,1,1,gold); }
+  }
+}
+
+/* Vila nevada: casinhas com luzes, pista de patinação, coral e boneco de neve */
+function drawVila(dt){
+  const c = px; TT += dt; SEA = 'winter'; c.globalAlpha = 1;
+  const m = minutesNow(), P = seaSky(phase(m),'winter'), night = P.d<.5, lum = .62+.38*P.d, land = PW > PH*1.2;
+  const C = (r,g,b) => rgb(dk([r,g,b],lum)), R = (x,y,w,h,s) => { c.fillStyle = s; c.fillRect(Math.round(x),Math.round(y),w,h); };
+  const hb = Math.round(PH*(land?.62:.60)), snowC = C(228,236,250);
+  const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]];
+  for(let y=0;y<hb+10;y++){ c.fillStyle = rgb(mixC(P.t,P.b,y/(hb+10))); c.fillRect(0,y,PW,1); }
+  if(P.d<.55){ const n = Math.round(PW*PH/260); for(let i=0;i<n;i++) R(Math.floor(hr(i)*PW),Math.floor(hr(i+500)*hb*.8),1,1,`rgba(255,255,255,${.3+.35*Math.abs(Math.sin(TT*1.5+i))})`); }
+  if(night){ c.fillStyle = 'rgb(240,236,212)'; disc(c,Math.round(PW*.8),Math.round(hb*.22),4); c.fillStyle = 'rgb(214,210,186)'; c.fillRect(Math.round(PW*.8)-1,Math.round(hb*.22)-1,2,1); }
+  else { c.fillStyle = 'rgba(255,246,206,.85)'; disc(c,Math.round(PW*.2),Math.round(hb*.2),4); }
+  for(let x=0;x<PW;x++){ const h = 8+Math.round(4*Math.sin(x*.07+1)+3*Math.sin(x*.13)); R(x,hb-h,1,h+14,C(190,206,232)); }
+  R(0,hb,PW,PH-hb,snowC); R(0,hb,PW,1,C(210,220,240));
+  /* casinhas */
+  const pal = [[[196,120,90],[120,70,60]],[[220,196,140],[150,60,56]],[[130,160,190],[70,60,100]],[[168,196,150],[110,70,60]],[[214,150,170],[90,70,90]]];
+  const n = Math.max(3,Math.round(PW/34)), sp = PW/n;
+  for(let i=0;i<n;i++){
+    const hw = 18+Math.floor(hr(i+3)*4)*2, hh = 14+Math.floor(hr(i+7)*8), hx = Math.round(sp*i+(sp-hw)/2), [wall,roof] = pal[i%5], cxh = hx+Math.floor(hw/2), rh = Math.floor(hw/2)-1, by = hb+2;
+    R(hx,by-hh,hw,hh,C(...wall));
+    for(let k=0;k<rh;k++){ const w = Math.min(hw+4,2*k+3); R(cxh-Math.floor(w/2),by-hh-rh+k,w,1,C(236,242,252)); }
+    R(hx-2,by-hh,hw+4,1,C(...roof));
+    R(cxh+Math.floor(hw*.2),by-hh-rh+2,3,Math.max(3,Math.floor(rh/2)),C(120,56,48)); R(cxh+Math.floor(hw*.2)-1,by-hh-rh+1,5,1,C(236,242,252));
+    if(Math.random()<dt*1.1) SMOKE.push({x:cxh+Math.floor(hw*.2)+1,y:by-hh-rh+1,a:.55,p:Math.random()*6});
+    R(cxh-2,by-6,4,6,C(110,60,40)); R(cxh-1,by-5,2,2,C(40,120,70)); R(cxh,by-5,1,1,'rgb(230,60,60)');
+    for(const wxx of [hx+3,hx+hw-7]){ const lit = night; R(wxx,by-hh+3,4,4,lit?`rgba(255,${200+Math.round(14*Math.sin(TT*3+wxx))},110,1)`:C(150,190,220)); R(wxx+1,by-hh+3,1,4,C(...wall)); R(wxx,by-hh+4,4,1,C(...wall));
+      if(lit){ c.fillStyle = 'rgba(255,200,100,.07)'; disc(c,wxx+2,by-hh+5,4); } }
+    for(let x=hx;x<hx+hw;x+=3){ const lit = Math.floor(TT*1.5+x*.3)%2===0; R(x,by-hh+1+((x-hx)%6===0?1:0),1,1,rgb(lc[(x>>1)%4],lit?1:.35)); }
+  }
+  for(let i=SMOKE.length-1;i>=0;i--){ const s = SMOKE[i]; s.y -= 5*dt; s.x += Math.sin(TT*1.5+s.p)*.2; s.a -= .22*dt; if(s.a<=0){ SMOKE.splice(i,1); continue; } c.fillStyle = `rgba(232,232,244,${s.a})`; c.fillRect(Math.round(s.x),Math.round(s.y),2,2); }
+  const pine = (tx,tb,h) => { R(tx,tb-2,1,2,C(90,60,40)); for(let k=0;k<h;k++){ const w = 1+Math.floor(k*.9)*1+ (k>3?0:0); const ww = Math.min(11,1+k); R(tx-Math.floor(ww/2),tb-2-h+k,ww,1,(k%4===3)?C(228,236,250):C(30,98,60)); } };
+  pine(Math.round(PW*.07),hb+12,18); pine(Math.round(PW*.93),hb+12,18);
+  /* pista de patinação */
+  const rw = Math.min(Math.round(PW*.62),84), rh = 9, rcx = Math.round(PW*.5), rcy = hb+Math.round((PH-hb)*.34);
+  for(let y=-rh-1;y<=rh+1;y++){ const w = Math.floor((rw/2+1)*Math.sqrt(Math.max(0,1-(y/(rh+1))*(y/(rh+1))))); R(rcx-w,rcy+y,2*w,1,C(246,250,255)); }
+  for(let y=-rh;y<=rh;y++){ const w = Math.floor((rw/2)*Math.sqrt(Math.max(0,1-(y/rh)*(y/rh)))); R(rcx-w,rcy+y,2*w,1,C(168,208,236)); }
+  R(rcx-Math.round(rw*.25),rcy-2,Math.round(rw*.2),1,C(200,230,248)); R(rcx+Math.round(rw*.05),rcy+3,Math.round(rw*.18),1,C(200,230,248));
+  const skater = (a,col,hat) => { const sx = Math.round(rcx+Math.cos(a)*(rw/2-7)), sy = Math.round(rcy+Math.sin(a)*(rh-3)); R(sx-1,sy-7,3,1,hat); R(sx-1,sy-6,3,2,'rgb(240,200,170)'); R(sx-1,sy-4,3,3,col); R(sx-1,sy-1,1,2,'rgb(40,40,60)'); R(sx+1,sy-1,1,2,'rgb(40,40,60)'); };
+  const sk = [[TT*.5,C(200,50,60),'rgb(230,50,50)'],[-TT*.42+2.4,C(60,100,200),'rgb(240,240,240)']].map(([a,col,hat])=>({a,col,hat,y:Math.sin(a)})).sort((p,q)=>p.y-q.y);
+  sk.forEach(s=>skater(s.a,s.col,s.hat));
+  /* coral */
+  const cb = hb+Math.round((PH-hb)*.8), cxs = land ? Math.round(PW*.18) : Math.round(PW*.24), coats = [[200,50,50],[50,140,80],[70,110,210],[220,170,50]];
+  coats.forEach((col,i)=>{ const x = cxs+i*6-9, h = 6+(i%2), open = Math.floor(TT*3+i*1.3)%2===0;
+    R(x,cb-h-2,3,1,i%2?rgb(dk([230,50,50],lum)):'rgb(240,240,240)'); R(x,cb-h-1,3,2,'rgb(240,200,170)'); if(open) R(x+1,cb-h,1,1,'rgb(120,40,40)');
+    R(x,cb-h+1,3,h-1,rgb(dk(col,lum))); R(x,cb-1,1,2,'rgb(40,40,60)'); R(x+2,cb-1,1,2,'rgb(40,40,60)'); R(x+1,cb-h+2,2,2,'rgb(250,250,250)'); });
+  if(Math.random()<dt*1.1) NOTES.push({x:cxs-6+Math.random()*20,y:cb-16,a:1,p:Math.random()*6});
+  for(let i=NOTES.length-1;i>=0;i--){ const q = NOTES[i]; q.y -= 6*dt; q.x += Math.sin(TT*2+q.p)*.3; q.a -= .3*dt; if(q.a<=0){ NOTES.splice(i,1); continue; }
+    c.fillStyle = `rgba(255,248,214,${q.a})`; const nx = Math.round(q.x), ny = Math.round(q.y); c.fillRect(nx,ny,2,2); c.fillRect(nx+1,ny-3,1,3); c.fillRect(nx+2,ny-3,1,1); }
+  /* boneco de neve */
+  const sbx = Math.round(PW*(land?.84:.82)), sbb = hb+Math.round((PH-hb)*.78);
+  c.fillStyle = 'rgb(246,250,255)'; c.fillStyle = rgb(dk([246,250,255],lum)); disc(c,sbx,sbb-5,5); disc(c,sbx,sbb-12,4); disc(c,sbx,sbb-17,3);
+  R(sbx-1,sbb-18,1,1,'rgb(20,20,30)'); R(sbx+1,sbb-18,1,1,'rgb(20,20,30)'); R(sbx,sbb-17,3,1,'rgb(240,130,40)');
+  R(sbx-3,sbb-14,7,1,'rgb(210,50,50)'); R(sbx-2,sbb-22,5,1,'rgb(30,30,40)'); R(sbx-1,sbb-24,3,2,'rgb(30,30,40)'); R(sbx,sbb-11,1,1,'rgb(20,20,30)'); R(sbx,sbb-8,1,1,'rgb(20,20,30)');
+  /* poste de luz */
+  const lx = land ? Math.round(PW*.27) : Math.round(PW*.14), lb = hb+Math.round((PH-hb)*.58);
+  R(lx,lb-18,1,18,'rgb(40,40,52)'); R(lx-1,lb-21,3,3,night?'rgb(255,222,130)':'rgb(220,220,200)');
+  if(night){ c.fillStyle = 'rgba(255,214,120,.08)'; disc(c,lx,lb-20,14); c.fillStyle = 'rgba(255,214,120,.09)'; disc(c,lx,lb-20,8); }
+  snowFall(c,SN3,dt,0,0,PW,PH,Math.round(PW*PH/170),.8);
 }
 
 /* ---------- Cena: Aurora (partículas em campo de fluxo) ---------- */
@@ -1078,13 +1234,13 @@ try{
 
 /* ---------- Cenas, painel e interação ---------- */
 let scene = 'window';
-try{ const s = localStorage.getItem('scene'); if(SCENES.some(x=>x[0]===s)) scene = s; }catch(e){}
+try{ const s = localStorage.getItem('scene'); if(SCENES.some(x=>x[0]===s) && (!['sala','vila'].includes(s) || xmasOn())) scene = s; }catch(e){}
 let hintTimer, gearTimer;
 function showHint(t){ const h=$('hint'); h.textContent=t; h.classList.add('on'); clearTimeout(hintTimer); hintTimer=setTimeout(()=>h.classList.remove('on'),1800); }
 function showGear(){ $('gear').classList.add('on'); clearTimeout(gearTimer); gearTimer=setTimeout(()=>$('gear').classList.remove('on'),4000); }
 function setScene(s, announce){
   scene = s; document.body.dataset.scene = s;
-  $('cvPixel').style.display = (s==='window'||s==='lofi') ? 'block' : 'none';
+  $('cvPixel').style.display = (s==='window'||s==='lofi'||s==='sala'||s==='vila') ? 'block' : 'none';
   $('cvAurora').style.display = s==='aurora' ? 'block' : 'none';
   $('cvNight').style.display = s==='night' ? 'block' : 'none';
   if(s==='aurora'){ au.fillStyle='#000'; au.fillRect(0,0,cvAu.width,cvAu.height); }
@@ -1094,7 +1250,7 @@ function setScene(s, announce){
 }
 function buildChips(){
   $('rowScene').textContent = ''; $('rowWx').textContent = '';
-  SCENES.forEach(([k])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.s=k; b.textContent=sceneName(k); b.onclick=()=>setScene(k,false); $('rowScene').appendChild(b); });
+  sceneList().forEach(k=>{ const b=document.createElement('button'); b.className='chip'+(k===scene?' sel':''); b.dataset.s=k; b.textContent=sceneName(k); b.onclick=()=>setScene(k,false); $('rowScene').appendChild(b); });
   Object.entries(KINDS).forEach(([k,v])=>{ const b=document.createElement('button'); b.className='chip'; b.dataset.k=k; b.textContent=v.e+' '+tr('wx_'+k); b.onclick=()=>{ WX={kind:k,temp:v.t,live:false,rainIn:null}; updateWx(); }; $('rowWx').appendChild(b); });
 }
 buildChips();
@@ -1203,8 +1359,8 @@ $('stage').addEventListener('click', e => {
     if(!window.RelogioNative){ try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(()=>{}); }catch(_){} }
     try{ navigator.wakeLock && navigator.wakeLock.request('screen').catch(()=>{}); }catch(_){}
   }
-  const i = SCENES.findIndex(x=>x[0]===scene);
-  setScene(SCENES[(i+1)%SCENES.length][0], true); showGear();
+  const L = sceneList(), i = L.indexOf(scene);
+  setScene(L[(i+1)%L.length], true); showGear();
 });
 
 /* anti-burn-in: desloca o relógio alguns pixels a cada minuto */
@@ -1215,7 +1371,8 @@ let last = performance.now(), accP = 0, accA = 0, accN = 0, accC = 0;
 function frame(ts){
   const dt = Math.min(.1,(ts-last)/1000); last = ts;
   accC += dt; if(accC>=.5){ accC=0; tickClock(); }
-  if(scene==='window'||scene==='lofi'){ accP += dt; if(accP>=1/12){ (scene==='window'?drawPixel:drawLofi)(accP); accP=0; } }
+  if(XSCENES.includes(scene) && !xmasOn()) setScene('window',false);
+  if(scene==='window'||scene==='lofi'||scene==='sala'||scene==='vila'){ accP += dt; if(accP>=1/12){ ({window:drawPixel,lofi:drawLofi,sala:drawSala,vila:drawVila})[scene](accP); accP=0; } }
   else if(scene==='aurora'){ accA += dt; if(accA>=1/30){ drawAurora(accA); accA=0; } }
   else if(scene==='night'){ accN += dt; if(accN>=1/24){ drawNight(accN); accN=0; } }
   requestAnimationFrame(frame);
