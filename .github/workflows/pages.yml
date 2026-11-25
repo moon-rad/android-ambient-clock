@@ -45,5 +45,9 @@ jobs:
         with:
           path: site
 
+      # O GitHub às vezes ainda não lista o artefato logo após o upload ("Found 0 artifact(s)").
+      - name: Esperar o artefato ficar visível
+        run: sleep 20
+
       - id: deployment
         uses: actions/deploy-pages@v4
