@@ -1,8 +1,16 @@
 name: Build APK
 
+# O APK só precisa ser refeito quando muda a parte nativa (ícone, permissões, plugins).
+# Mudanças visuais em src/index.html vão pelo workflow "Publicar página" e chegam ao app sozinhas.
 on:
   push:
     branches: [main]
+    paths:
+      - 'scripts/patch-android.mjs'
+      - 'scripts/make-icons.mjs'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -40,8 +48,22 @@ jobs:
       - name: Aplicar ajustes nativos
         run: node scripts/patch-android.mjs
 
+      - name: Gerar o ícone do app
+        run: node scripts/make-icons.mjs
+
       - name: Sincronizar
         run: npx cap sync android
+
+      - name: Usar a chave de assinatura fixa
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_B64" ]; then
+            echo "::error::Falta o secret DEBUG_KEYSTORE_B64 (sem ele cada APK sai com assinatura diferente e não atualiza por cima)."
+            exit 1
+          fi
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
 
       - name: Compilar o APK
         working-directory: android
