@@ -984,20 +984,20 @@ function drawSala(dt){
   snowFall(c,SN1,dt,wx,wy,ww,wh,Math.max(8,Math.round(ww*wh/110)),.9);
   R(wx+Math.floor(ww/2)-1,wy,2,wh,wood); R(wx,wy+Math.round(wh*.55),ww,2,wood); R(wx-4,wy+wh+2,ww+8,2,woodL);
   /* árvore */
-  const cx = land ? Math.round(PW*.2) : 24, tb = dy+3, H = Math.min(66,dy-14), ty = tb-H, sc = H/46;
+  const cx = land ? Math.round(PW*.2) : 27, tb = dy+3, H = Math.min(66,dy-14), ty = tb-H, sc = H/46, wf = 1.3;   /* wf: largura da árvore */
   if(P.d<.7){ c.fillStyle = `rgba(255,200,120,${.05*(1-P.d)})`; disc(c,cx,tb-Math.round(H*.45),Math.round(26*sc)); }
   R(cx-2,tb-4,4,4,C(96,62,40));
   const g1 = C(34,120,70), g2 = C(24,92,54), g3 = C(48,142,84);
-  for(let i=0;i<H-4;i++){ const w = 3+(i%10)+Math.floor(i/10)*3; R(cx-Math.floor(w/2),ty+3+i,w,1,(i%10<2)?g3:(i%10>6?g2:g1)); }
+  for(let i=0;i<H-4;i++){ const w = Math.round((3+(i%10)+Math.floor(i/10)*3)*wf); R(cx-Math.floor(w/2),ty+3+i,w,1,(i%10<2)?g3:(i%10>6?g2:g1)); }
   const orn = [[-2,10,[230,60,60]],[3,15,[250,200,70]],[-6,21,[90,150,240]],[5,25,[240,120,190]],[-1,29,[230,60,60]],[7,34,[250,200,70]],[-8,36,[90,150,240]],[1,39,[240,120,190]],[-4,16,[250,200,70]]];
-  for(const [ox,oy,col] of orn){ const px2 = cx+Math.round(ox*sc), py2 = ty+Math.round(oy*sc); R(px2,py2,2,2,rgb(col)); R(px2,py2,1,1,'rgba(255,255,255,.75)'); }
+  for(const [ox,oy,col] of orn){ const px2 = cx+Math.round(ox*sc*wf), py2 = ty+Math.round(oy*sc); R(px2,py2,2,2,rgb(col)); R(px2,py2,1,1,'rgba(255,255,255,.75)'); }
   const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]];
-  for(let k=0;k<16;k++){ const ly = 4+Math.floor(hr(k)*(H-10)), w = 3+(ly%10)+Math.floor(ly/10)*3, lx = cx+Math.round((hr(k+20)-.5)*w*.85), lit = Math.floor(TT*1.6+k*.7)%2===0;
+  for(let k=0;k<16;k++){ const ly = 4+Math.floor(hr(k)*(H-10)), w = Math.round((3+(ly%10)+Math.floor(ly/10)*3)*wf), lx = cx+Math.round((hr(k+20)-.5)*w*.85), lit = Math.floor(TT*1.6+k*.7)%2===0;
     R(lx,ty+3+ly,1,1,rgb(lc[k%4],lit?1:.3)); if(lit){ c.fillStyle = rgb(lc[k%4],.14); c.fillRect(lx-1,ty+3+ly-1,3,3); } }
   const sp = .65+.35*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cx,ty-1,1,4); c.fillRect(cx-1,ty,3,1); c.fillRect(cx-2,ty+1,5,1);
   /* presentes */
   const gift = (x,w,h,col,rib) => { R(x,tb-h,w,h,rgb(dk(col,lum))); R(x+Math.floor(w/2),tb-h,1,h,rib); R(x,tb-Math.ceil(h/2),w,1,rib); R(x+Math.floor(w/2)-1,tb-h-1,3,1,rib); };
-  gift(cx-19,7,6,[200,50,50],gold); gift(cx+13,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-11,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+7,5,4,[150,90,200],gold);
+  gift(cx-22,7,6,[200,50,50],gold); gift(cx+16,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-13,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+10,5,4,[150,90,200],gold);
   /* lareira */
   const fw = 30, fh = 28, fx = land ? PW-fw-Math.round(PW*.12) : PW-fw-5, fb = dy+2;
   R(fx,fb-fh,fw,fh,C(128,58,48));
@@ -1023,7 +1023,7 @@ function drawSala(dt){
   const sock = [[210,50,50],[50,140,80],[70,110,210]];
   sock.forEach((col,i)=>{ const sx = fx+3+i*10; R(sx,fb-fh+1,4,2,'rgb(244,244,244)'); R(sx,fb-fh+3,4,6,rgb(dk(col,lum))); R(sx-2,fb-fh+8,6,3,rgb(dk(col,lum))); R(sx-2,fb-fh+10,2,1,'rgb(244,244,244)'); });
   /* tapete e gato */
-  const catx = Math.round((cx+19+fx)/2), cf = dy+6, ox = catx-8;
+  const catx = Math.round((cx+26+fx)/2), cf = dy+6, ox = catx-8;
   R(catx-17,dy+3,35,5,C(150,48,56)); R(catx-17,dy+3,35,1,gold); R(catx-17,dy+7,35,1,gold);
   if(SALA.t0===null) SALA.t0 = TT;
   if(TT-SALA.t0 > SALA.dur){ const [na,nd] = SALA_NEXT[SALA.act]; SALA.act = na; SALA.dur = nd; SALA.t0 = TT; }
