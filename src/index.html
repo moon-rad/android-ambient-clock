@@ -495,18 +495,19 @@ function drawWild(c,P,hy,nearY,farY){
 
 /* ---------- Gato na janela (cena Janela): passa pelo peitoril, olha a paisagem, pula pra grama e vai pra casinha;
               ou tenta subir, fica pendurado, cai (haha) e na segunda vez consegue ---------- */
-const houseX = () => Math.min(Math.round(PW*.74), PW-27);
+const HK = 1.45;   /* escala da casinha */
+const houseX = () => Math.min(Math.round(PW*.72), PW-Math.round(24*HK)-2);
 const ANI = .7;
 const SK = 1.6;   /* escala do gato no peitoril (dentro da janela): proporcional ao vidro */
 const fSK = (c,x,y,col,ox,oy,w,h) => { const x0 = Math.round(ox*SK), x1 = Math.round((ox+w)*SK), y0 = Math.round(oy*SK), y1 = Math.round((oy+h)*SK); c.fillStyle = col; c.fillRect(x+x0,y+y0,Math.max(1,x1-x0),Math.max(1,y1-y0)); };   /* escala dos bichos lá fora: pequenos perto da casa */
 function wcGeom(D,act){
-  const xs = Math.round(act==='gatoPula' ? PW*.26 : D>0 ? PW*.26 : PW*.7), hxd = houseX()+14, sg = hxd>xs ? 1 : -1, xj = xs+sg*10;
+  const xs = Math.round(act==='gatoPula' ? PW*.26 : D>0 ? PW*.26 : PW*.7), hxd = houseX()+Math.round(15*HK), sg = hxd>xs ? 1 : -1, xj = xs+sg*10;
   return {xs, hxd, sg, xj, W: Math.abs(hxd-xj)/12};
 }
 const wcDur = (act,D) => (act==='gatoJanela' ? 28 : 28.5) + 3.2 + wcGeom(D,act).W + 1;
 let WCL = 1;   /* luminosidade da cena, para o gato do lo-fi na grama */
 function gcat(c,cx,by,D,pose,t){
-  const s = .8, ox = Math.round(cx-8*s);
+  const s = .6, ox = Math.round(cx-8*s);
   if(pose==='dazed') drawCat(c,by,WCL,{act:'sitpose',t,ox,fl:D>0,s,o:{hd:1+(Math.sin(t*8)>0?1:0)}});
   else drawCat(c,by,WCL,{act:'walkpose',t:pose==='jump'?0:t,ox,fl:D>0,s});
 }
@@ -614,22 +615,23 @@ function drawPixel(dt){
   c.fillStyle = rgb(near); for(let x=0;x<PW;x++){ const y=nearY(x); c.fillRect(x,y,1,PH-y); }
   // casinha (parede, telhado triangular, porta, janela acesa à noite e chaminé)
   const hx = houseX(), by = nearY(hx)+3, wall = mixC([28,26,40],[176,140,112],P.d); let roof = mixC([30,18,24],[140,60,50],P.d); if(SEA==='winter') roof = mixC(roof,mixC([150,160,190],[240,244,252],P.d),.8);
-  c.fillStyle = rgb(wall); c.fillRect(hx,by-12,20,12);
-  c.fillStyle = rgb(roof); for(let r=0;r<=9;r++) c.fillRect(hx-2+r,by-13-r,24-2*r,1);
-  c.fillStyle = rgb(mixC(roof,[0,0,0],.2)); c.fillRect(hx+14,by-24,3,9);
-  c.fillStyle = rgb(mixC([20,14,18],[96,60,44],P.d)); c.fillRect(hx+13,by-8,4,8);
-  c.fillStyle = rgb(mixC([250,210,110],[60,40,30],P.d*.8)); c.fillRect(hx+16,by-4,1,1);
-  c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)); c.fillRect(hx+3,by-9,5,5);
-  c.fillStyle = rgb(mixC(wall,[0,0,0],.45)); c.fillRect(hx+5,by-9,1,5); c.fillRect(hx+3,by-7,5,1);
+  const HR = (col,dx,dy,w,h) => { const x0 = Math.round(dx*HK), x1 = Math.round((dx+w)*HK), y0 = Math.round(dy*HK), y1 = Math.round((dy+h)*HK); c.fillStyle = col; c.fillRect(hx+x0,by+y0,Math.max(1,x1-x0),Math.max(1,y1-y0)); };
+  HR(rgb(wall),0,-12,20,12);
+  for(let r=0;r<=9;r++) HR(rgb(roof),-2+r,-13-r,24-2*r,1);
+  HR(rgb(mixC(roof,[0,0,0],.2)),14,-24,3,9);
+  HR(rgb(mixC([20,14,18],[96,60,44],P.d)),13,-8,4,8);
+  HR(rgb(mixC([250,210,110],[60,40,30],P.d*.8)),16,-4,1,1);
+  HR(P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)),3,-9,5,5);
+  HR(rgb(mixC(wall,[0,0,0],.45)),5,-9,1,5); HR(rgb(mixC(wall,[0,0,0],.45)),3,-7,5,1);
   if(xmasOn()){      /* pisca-pisca no telhado e no beiral */
     const cols = [[255,70,70],[255,214,80],[90,210,130],[100,160,255]], pts = [];
-    for(let r=0;r<=8;r+=2) pts.push([hx-2+r,by-13-r],[hx+21-r,by-13-r]);
-    for(let x=hx+1;x<hx+20;x+=3) pts.push([x,by-12]);
+    for(let r=0;r<=8;r+=2) pts.push([-2+r,-13-r],[21-r,-13-r]);
+    for(let x=1;x<20;x+=3) pts.push([x,-12]);
     pts.forEach((q,i)=>{ const lit = Math.floor(TT*1.6+i*.5)%2===0, col = cols[i%4];
-      if(lit && P.d<.65){ c.fillStyle = rgb(col,.2*(1-P.d)); c.fillRect(q[0]-1,q[1]-1,3,3); }
-      c.fillStyle = rgb(col, lit ? 1 : .3); c.fillRect(q[0],q[1],1,1); });
+      if(lit && P.d<.65){ c.fillStyle = rgb(col,.2*(1-P.d)); c.fillRect(hx+Math.round(q[0]*HK)-1,by+Math.round(q[1]*HK)-1,3,3); }
+      c.fillStyle = rgb(col, lit ? 1 : .3); c.fillRect(hx+Math.round(q[0]*HK),by+Math.round(q[1]*HK),1,1); });
   }
-  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+15+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-25-ph),1,1); }
+  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+Math.round(15*HK)+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-25*HK-ph),1,1); }
   { const tx = Math.round(PW*.12); drawTree(c,SEA,P,tx,nearY(tx)+3,9,16); }
   drawWild(c,P,hy,nearY,farY);
   drawSeasonParts(c,SEA,P,dt,0,0,PW,PH-6);
