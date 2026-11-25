@@ -23,6 +23,7 @@ html,body{margin:0;width:100%;height:100%;min-height:100vh;background:#000;overf
 #stage{position:fixed;inset:0;width:100%;height:100%;transition:filter 1.5s;overflow:hidden}
 canvas{position:absolute;left:0;top:0;display:block}
 #cvAurora,#cvNight{width:100%;height:100%}
+#cvAurora{filter:contrast(1.12)}   /* esmaga o cinza residual do rastro: o fundo fica 100% preto */
 #batt{position:absolute;left:max(14px,2.2vw);bottom:max(12px,2.4vh);display:flex;align-items:center;gap:7px;font-size:12px;font-weight:300;letter-spacing:.04em;opacity:.45;pointer-events:none;text-shadow:0 1px 6px rgba(0,0,0,.6);transition:transform 3s ease}
 #batt[hidden]{display:none}
 #battIco{position:relative;width:20px;height:9px;border:1px solid currentColor;border-radius:2px;box-sizing:border-box}
@@ -97,6 +98,8 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
       <div class="row"><button class="chip" id="simNow">Hora real</button></div>
       <h3>Clima <span id="wxMode"></span></h3>
       <div class="row" id="rowWx"></div>
+      <h3 id="seaH">Estação</h3>
+      <div class="row" id="rowSea"></div>
       <label class="chk"><input type="checkbox" id="dim" checked> Escurecer de madrugada (23h–6h)</label>
       <label class="chk"><input type="checkbox" id="lux" checked> <span id="luxLbl">Brilho automático (sensor de luz)</span></label>
       <div id="loc">
@@ -144,7 +147,8 @@ const T = {
     language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
     sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno',
     wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade',
-    rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt' },
+    rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt',
+    season:'Estação', sea_auto:'Auto', sea_spring:'Primavera', sea_summer:'Verão', sea_autumn:'Outono', sea_winter:'Inverno', sea_cycle:'Ciclo' },
   en:{ title:'Ambient clock', settings:'Settings', close:'Close', scene:'Scene', clock:'Clock size', test:'Test time', realTime:'Real time', real:'real',
     weather:'Weather', live:'live', demoMode:'demo — no internet in preview', demo:'demo', dim:'Dim at night (11 PM–6 AM)',
     lux_def:'Auto brightness (light sensor)', lux_native:'Auto brightness (device light sensor)', lux_na:'Auto brightness (not available in this browser; included in the APK)',
@@ -155,7 +159,8 @@ const T = {
     language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, a coffee via Pix (Brazil) is welcome. Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
     sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night',
     wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm',
-    rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en' }
+    rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en',
+    season:'Season', sea_auto:'Auto', sea_spring:'Spring', sea_summer:'Summer', sea_autumn:'Fall', sea_winter:'Winter', sea_cycle:'Cycle' }
 };
 let LANGPREF = 'auto', LANG = 'pt';
 try{ LANGPREF = localStorage.getItem('relogio.lang') || 'auto'; }catch(e){}
@@ -332,6 +337,79 @@ function sizePixel(){
   DROPS = Array.from({length:Math.min(140,Math.round(PW*PH/160))},()=>({x:r()*PW, y:r()*PH, v:70+r()*50}));
 }
 function disc(c,cx,cy,r){ for(let dy=-r;dy<=r;dy++){ const w=Math.floor(Math.sqrt(r*r-dy*dy+.5)); c.fillRect(cx-w,cy+dy,2*w+1,1); } }
+
+/* ---------- Estações do ano (cenas Janela e Lo-fi) ---------- */
+const SEAS = ['spring','summer','autumn','winter'];
+let SEAPREF = 'auto', SEA = 'summer';
+try{ SEAPREF = localStorage.getItem('relogio.season') || 'auto'; }catch(e){}
+function seasonNow(){
+  if(SEAS.includes(SEAPREF)) return SEAPREF;
+  if(SEAPREF==='cycle') return SEAS[Math.floor(Date.now()/(3*3600e3))%4];   /* troca a cada 3 horas */
+  const mo = new Date().getMonth();                                          /* auto: calendário real, invertido no hemisfério sul */
+  let i = mo>=2&&mo<=4 ? 0 : mo>=5&&mo<=7 ? 1 : mo>=8&&mo<=10 ? 2 : 3;
+  if(CFG.lat<0) i = (i+2)%4;
+  return SEAS[i];
+}
+const SEACOL = {
+  spring:{far:[96,168,104], near:[70,142,80],  leaf:[128,198,112], leaf2:[98,172,92]},
+  summer:{far:[70,130,74],  near:[46,106,58],  leaf:[58,134,68],   leaf2:[40,108,52]},
+  autumn:{far:[160,126,62], near:[134,96,50],  leaf:[218,126,44],  leaf2:[184,74,40]},
+  winter:{far:[216,226,238],near:[236,242,250]}
+};
+function seaGround(S,P){
+  const nf = S==='winter' ? [52,62,92] : [18,26,48], nn = S==='winter' ? [68,78,108] : [10,16,32];
+  let far = mixC(nf,SEACOL[S].far,P.d), near = mixC(nn,SEACOL[S].near,P.d);
+  far = mixC(far,[160,90,70],P.g*.35); near = mixC(near,[140,80,64],P.g*.3);
+  return [far,near];
+}
+const SEASKY = {spring:[[72,150,228],[190,228,250]], summer:[[40,128,232],[150,214,250]], autumn:[[88,128,190],[232,206,170]], winter:[[110,140,185],[212,224,238]]};
+function seaSky(P,S){ const k = .22*P.d, s = SEASKY[S]; return {d:P.d, g:P.g, t:mixC(P.t,s[0],k), b:mixC(P.b,s[1],k)}; }
+const sc3 = (c,f) => [c[0]*f, c[1]*f, c[2]*f];
+/* partículas: pétalas (primavera), folhas (outono), neve (inverno), vaga-lumes (verão à noite) */
+const SEAP = (()=>{ const r = rng(77); return Array.from({length:70},()=>({x:r(), y:r(), v:r(), ph:r()*6.28})); })();
+function drawSeasonParts(c,S,P,dt,x0,y0,w,h){
+  const wet = WX.kind==='rain'||WX.kind==='storm';
+  if(S==='summer'){
+    if(P.d<.45 && !wet) for(let i=0;i<9;i++){ const p = SEAP[i], a = .25+.75*Math.max(0,Math.sin(TT*1.3+p.ph*3));
+      const x = x0+Math.round(((p.x+Math.sin(TT*.35+p.ph)*.04+1)%1)*w), y = y0+Math.round((.62+p.y*.3+Math.sin(TT*.5+p.ph*2)*.02)*h);
+      c.fillStyle = `rgba(220,255,120,${a*(1-P.d)})`; c.fillRect(x,y,1,1); }
+    return;
+  }
+  if(wet && S!=='winter') return;
+  const n = S==='winter' ? 60 : S==='autumn' ? 22 : 26;
+  for(let i=0;i<n;i++){
+    const p = SEAP[i], v = S==='winter' ? 7+7*p.v : S==='autumn' ? 6+5*p.v : 5+4*p.v;
+    p.y += v*dt/h; p.x += (Math.sin(TT*.8+p.ph)*5+(S==='winter'?2:4))*dt/w;
+    if(p.y>1){ p.y = -.02; p.x = Math.random(); } if(p.x>1) p.x -= 1;
+    const x = x0+Math.floor(p.x*w), y = y0+Math.floor(p.y*h);
+    if(S==='winter'){ c.fillStyle = 'rgba(245,248,255,.92)'; c.fillRect(x,y,p.v>.8?2:1,p.v>.8?2:1); }
+    else if(S==='autumn'){ c.fillStyle = rgb(sc3(p.v>.5?[218,126,44]:[184,74,40],.5+.5*P.d),.95); c.fillRect(x,y,2,1); if(Math.floor(TT*3+p.ph)%2) c.fillRect(x+1,y+1,1,1); }
+    else { c.fillStyle = rgb(sc3(p.v>.5?[250,170,200]:[255,236,240],.55+.45*P.d),.9); c.fillRect(x,y,1,1); }
+  }
+}
+const TREEP = (()=>{ const r = rng(55); return Array.from({length:16},()=>({a:r()*6.28, d:r()})); })();
+const TREEB = [[-2,-1],[-3,-2],[-4,-3],[-5,-3],[-4,-5],[2,-1],[3,-2],[4,-3],[5,-3],[4,-5],[0,-2],[0,-3],[1,-4],[-1,-4],[0,-5]];
+function drawTree(c,S,P,tx,by,r,th){
+  const sway = Math.round(Math.sin(TT*.9)*.8), top = by-th, f = .4+.6*P.d;
+  c.fillStyle = rgb(mixC([20,14,12],[104,72,48],P.d)); c.fillRect(tx-1,top,3,th);
+  if(S==='winter'){
+    const k = Math.max(1,r/7);
+    for(const [dx,dy] of TREEB) c.fillRect(tx+Math.round(dx*k),top+Math.round(dy*k),1,1);
+    c.fillStyle = 'rgba(240,246,255,.95)'; for(const i of [2,3,4,7,8,9,10]){ const [dx,dy] = TREEB[i]; c.fillRect(tx+Math.round(dx*k),top+Math.round(dy*k)-1,1,1); }
+    return;
+  }
+  const l1 = sc3(SEACOL[S].leaf,f), l2 = sc3(SEACOL[S].leaf2,f), q = Math.round(r*.7);
+  c.fillStyle = rgb(l2); disc(c,tx+sway-Math.round(r*.8),top+1,q); disc(c,tx+sway+Math.round(r*.8),top+1,q); disc(c,tx+sway,top-Math.round(r*.4),r);
+  c.fillStyle = rgb(l1); disc(c,tx+sway-Math.round(r*.2),top-Math.round(r*.7),Math.round(r*.6));
+  if(S==='spring'){ for(const p of TREEP){ c.fillStyle = rgb(sc3(p.d>.5?[250,176,206]:[255,240,244],f)); c.fillRect(tx+sway+Math.round(Math.cos(p.a)*r*1.1*p.d),top-Math.round(r*.4)+Math.round(Math.sin(p.a)*r*.8*p.d),1,1); } }
+  if(S==='autumn'){ for(let i=0;i<8;i++){ const p = TREEP[i]; c.fillStyle = rgb(sc3(i%2?[236,190,60]:[190,60,36],f)); c.fillRect(tx+sway+Math.round(Math.cos(p.a)*r*1.1*p.d),top-Math.round(r*.4)+Math.round(Math.sin(p.a)*r*.8*p.d),1,1); } }
+}
+function buildSeaChips(){
+  const row = $('rowSea'); row.textContent = '';
+  ['auto',...SEAS,'cycle'].forEach(k=>{ const b = document.createElement('button'); b.className = 'chip'+(k===SEAPREF?' sel':''); b.dataset.k = k; b.textContent = tr('sea_'+k);
+    b.onclick = () => { SEAPREF = k; try{ localStorage.setItem('relogio.season',k); }catch(e){} row.querySelectorAll('.chip').forEach(x=>x.classList.toggle('sel',x.dataset.k===k)); };
+    row.appendChild(b); });
+}
 /* ---------- Bichos e flores lá fora (cena Janela): de vez em quando, e conforme o clima ---------- */
 const WILD = {act:null, t0:0, dur:0, next:40, dir:1};
 const WILD_DUR = {capivara:55, ovelhas:50, gato:36};
@@ -341,20 +419,20 @@ function wildPick(P){
   if(k==='storm') return null;
   const opts = [];
   if(k==='rain'){ opts.push('capivara'); }
-  else { opts.push('gato'); if(day){ opts.push('capivara'); if(k!=='fog') opts.push('ovelhas'); } }
+  else { opts.push('gato','gatoJanela','gatoPula'); if(day){ opts.push('capivara'); if(k!=='fog') opts.push('ovelhas'); } }
   return opts[Math.floor(Math.random()*opts.length)];
 }
 function wildUpdate(P){
   if(!WILD.act){
-    if(TT>=WILD.next){ const a = wildPick(P); if(a){ WILD.act=a; WILD.t0=TT; WILD.dur=WILD_DUR[a]; WILD.dir=Math.random()<.5?1:-1; } else WILD.next = TT+30; }
-  } else if(TT-WILD.t0>=WILD.dur || WX.kind==='storm'){ WILD.act=null; WILD.next = TT+70+Math.random()*90; }
+    if(TT>=WILD.next){ const a = wildPick(P); if(a){ WILD.act=a; WILD.t0=TT; WILD.dir=Math.random()<.5?1:-1; WILD.dur=(a==='gatoJanela'||a==='gatoPula')?wcDur(a,WILD.dir):WILD_DUR[a]; } else WILD.next = TT+30; }
+  } else if(TT-WILD.t0>=WILD.dur || WX.kind==='storm' || (WX.kind==='rain' && (WILD.act==='gatoJanela'||WILD.act==='gatoPula'))){ WILD.act=null; WILD.next = TT+70+Math.random()*90; }
 }
 function drawWild(c,P,hy,nearY,farY){
   wildUpdate(P);
   const lum = .5+.5*P.d, col = (r,g,b) => rgb([r*lum,g*lum,b*lum]);
   /* flores: abertas com sol, botões fechados com chuva ou à noite */
   const open = (WX.kind==='clear'||WX.kind==='partly') && P.d>.45;
-  for(const f of FLOWERS){
+  if(SEA==='spring'||SEA==='summer') for(const f of FLOWERS){
     const x = Math.round(f.x*PW), y = nearY(x)+1+f.o; if(y>PH-8) continue;
     c.fillStyle = col(50,120,70); c.fillRect(x,y-(open?3:2),1,open?3:2);
     c.fillStyle = col(f.c[0],f.c[1],f.c[2]);
@@ -362,9 +440,10 @@ function drawWild(c,P,hy,nearY,farY){
     else c.fillRect(x,y-3,1,1);
   }
   const A = WILD.act; if(!A) return;
+  if(A==='gatoJanela'||A==='gatoPula'){ windowCat(c,P,'grass',nearY); return; }
   const t = TT-WILD.t0, u = t/WILD.dur, D = WILD.dir;
   c.globalAlpha = clamp(Math.min(1,t/2,(WILD.dur-t)/2),0,1);
-  const R = (cx,cy,x,y,w,h,color) => { c.fillStyle = color; c.fillRect(D>0 ? Math.round(cx+x) : Math.round(cx-x-w), cy+y, w, h); };
+  const R = (cx,cy,x,y,w,h,color) => { const X = Math.round(x*ANI), Y = Math.round(y*ANI), W = Math.max(1,Math.round(w*ANI)), H = Math.max(1,Math.round(h*ANI)); c.fillStyle = color; c.fillRect(D>0 ? Math.round(cx+X) : Math.round(cx-X-W), Math.round(cy+Y), W, H); };
   if(A==='capivara'){
     const x = D>0 ? -18+u*(PW+36) : PW+18-u*(PW+36), by = clamp(nearY(Math.round(clamp(x,0,PW-1)))+2,0,PH-9), st = Math.floor(t*3)%2;
     const body = col(160,110,70), head = col(176,126,84), dkc = col(120,80,52);
@@ -373,7 +452,7 @@ function drawWild(c,P,hy,nearY,farY){
   } else if(A==='ovelhas'){
     const x0 = D>0 ? PW*.26 : PW*.58;
     for(let i=0;i<3;i++){
-      const x = x0+i*10+(i===1?2:0), by = Math.min(farY(Math.round(x))+7, nearY(Math.round(x))+1), hd = Math.floor(t*.7+i*1.3)%2;
+      const x = x0+i*7+(i===1?2:0), by = Math.min(farY(Math.round(x))+7, nearY(Math.round(x))+1), hd = Math.floor(t*.7+i*1.3)%2;
       const wool = col(235,235,225), dc = col(60,52,50);
       R(x,by,0,-5,6,4,wool); R(x,by,1,-6,4,1,wool); R(x,by,6,-4+hd,2,2,dc); R(x,by,1,-1,1,2,dc); R(x,by,4,-1,1,2,dc);
     }
@@ -386,9 +465,87 @@ function drawWild(c,P,hy,nearY,farY){
   c.globalAlpha = 1;
 }
 
+
+/* ---------- Gato na janela (cena Janela): passa pelo peitoril, olha a paisagem, pula pra grama e vai pra casinha;
+              ou tenta subir, fica pendurado, cai (haha) e na segunda vez consegue ---------- */
+const houseX = () => Math.min(Math.round(PW*.74), PW-27);
+const ANI = .7;   /* escala dos bichos lá fora: pequenos perto da casa */
+function wcGeom(D){
+  const xs = Math.round(D>0 ? PW*.26 : PW*.7), hxd = houseX()+14, sg = hxd>xs ? 1 : -1, xj = xs+sg*10;
+  return {xs, hxd, sg, xj, W: Math.abs(hxd-xj)/12};
+}
+const wcDur = (act,D) => (act==='gatoJanela' ? 28 : 38) + 1.2 + wcGeom(D).W + 1.2;
+function gcat(c,cx,by,D,pose,t,fur,fur2){
+  const R = (x,y,w,h,col) => { const X = Math.round(x*ANI), Y = Math.round(y*ANI), W = Math.max(1,Math.round(w*ANI)), H = Math.max(1,Math.round(h*ANI)); c.fillStyle = col; c.fillRect(D>0 ? Math.round(cx+X) : Math.round(cx-X-W), Math.round(by+Y), W, H); };
+  const sw = Math.round(Math.sin(t*4)), eye = 'rgb(22,16,16)';
+  if(pose==='walk'){ const st = Math.floor(t*4)%2; R(0,-4,7,3,fur); R(6,-6,3,3,fur); R(6,-7,1,1,fur); R(8,-7,1,1,fur); R(8,-5,1,1,eye); R(-1+sw,-7,1,4,fur); R(1,-1,1,1+st,fur); R(5,-1,1,2-st,fur); }
+  else if(pose==='crouch'){ const wg = Math.round(Math.sin(t*14)); R(0,-3,8,3,fur); R(-1,-4+wg,2,2,fur); R(7,-5,3,3,fur); R(7,-6,1,1,fur); R(9,-6,1,1,fur); R(9,-4,1,1,eye); R(-3+sw,-3,3,1,fur); }
+  else if(pose==='jump'){ R(0,-3,8,2,fur); R(8,-4,3,3,fur); R(8,-5,1,1,fur); R(10,-5,1,1,fur); R(10,-3,1,1,eye); R(10,-1,2,1,fur); R(-2,-2,2,1,fur); R(-5,-4,3,1,fur); }
+  else { const hx = pose==='dazed' ? Math.round(Math.sin(t*8)) : 0; R(1,-6,4,6,fur); R(1+hx,-9,4,3,fur); R(1+hx,-10,1,1,fur); R(4+hx,-10,1,1,fur); R(2+hx,-8,1,1,eye); R(5,-2,3,1,fur); R(5,-3+sw,1,2,fur); }
+}
+/* gato visto de costas, sentado no peitoril, olhando a paisagem */
+function sillBack(c,x,by,fur,fur2,t,tw,ear){
+  const F = (col,ox,oy,w,h) => { c.fillStyle = col; c.fillRect(x+ox,by+oy,w,h); };
+  F(fur,1,-12+(ear===1?1:0),1,1); F(fur,8,-12+(ear===2?1:0),1,1); F(fur,1,-11,2,1); F(fur,7,-11,2,1);
+  F(fur,1,-10,8,2); F(fur,2,-8,6,1); F(fur,2,-7,6,1); F(fur,1,-6,8,6);
+  F(fur2,4,-10,2,1); F(fur2,4,-6,1,3); F(fur2,6,-4,1,3);
+  for(let i=0;i<6;i++){ const off = Math.round(Math.sin(t*5-i*.7)*tw*i/5); F(fur,9+off,-2-i,i<2?2:1,1); }
+}
+/* gato espiando por cima do peitoril (pendurado): orelhas, olhos e patinhas */
+function peek(c,x,ys,t,slip,fur,fur2){
+  const F = (col,ox,oy,w,h) => { c.fillStyle = col; c.fillRect(x+ox,ys+oy,w,h); };
+  const sink = Math.round(slip*7), bob = Math.round(Math.sin(t*9)*(1-slip)*1.2), w1 = Math.round(Math.sin(t*12)), eye = 'rgb(22,16,16)';
+  c.save(); c.beginPath(); c.rect(x-3,ys-12,16,12); c.clip();             /* só o que está acima do peitoril */
+  const hy = -6+sink+bob;
+  F(fur,1,hy,1,1); F(fur,6,hy,1,1); F(fur,1,hy+1,2,1); F(fur,5,hy+1,2,1);
+  F(fur,1,hy+2,6,3); F(fur2,3,hy+2,2,1);
+  if(slip<.3 && t>2.5){ F(fur2,2,hy+3,2,1); F(fur2,5,hy+3,1,1); } else { F(eye,2,hy+3,1,1); F(eye,5,hy+3,1,1); }
+  F(fur,3,hy+4,2,1);
+  c.restore();
+  F(fur,0,-2+sink+w1,2,2); F(fur,6,-2+sink-w1,2,2);                          /* patinhas agarradas na beirada */
+}
+function windowCat(c,P,layer,nearY){
+  const A = WILD.act; if(A!=='gatoJanela' && A!=='gatoPula') return;
+  const t = TT-WILD.t0, D = WILD.dir, G = wcGeom(D), lum = .5+.5*P.d, col = (r,g,b) => rgb([r*lum,g*lum,b*lum]);
+  const fur = col(214,140,70), fur2 = col(160,92,42), ys = PH-6;
+  const gy = x => clamp(nearY(Math.round(clamp(x,0,PW-1)))+2,0,PH-9);
+  const win = (t0,a,b) => t>=t0+a && t<t0+b;
+  const back = (t0,swishes,ears) => {   /* de costas olhando a paisagem */
+    const tt = t-t0; let tw = .6; for(const [a,b] of swishes) if(tt>=a && tt<b) tw = 2.4;
+    let ear = 0; for(const [a,b,k] of ears) if(tt>=a && tt<b) ear = k;
+    if(layer==='sill') sillBack(c,G.xs-5,ys,fur,fur2,t,tw,ear);
+  };
+  const exit = t0 => {                    /* pula do peitoril pra grama e vai até a casinha */
+    const s = t-t0;
+    if(s<1.2){ if(layer!=='sill') return; const u = s/1.2, x = G.xs+G.sg*10*u, y = ys-2+(gy(G.xj)-(ys-2))*u-Math.sin(u*Math.PI)*12; gcat(c,x,y,G.sg,'jump',t,fur,fur2); return; }
+    if(layer!=='grass') return;
+    const w = s-1.2, x = G.xj+G.sg*Math.min(w*12,G.W*12), fade = clamp(1-(w-G.W)/1,0,1);
+    c.globalAlpha = fade; gcat(c,x,gy(x),G.sg,'walk',t,fur,fur2); c.globalAlpha = 1;
+  };
+  if(A==='gatoJanela'){
+    if(t<6){ if(layer!=='sill') return; const u = t/6, x = (D>0 ? -14 : PW+14)+(G.xs-(D>0 ? -14 : PW+14))*u, st = Math.floor(t*5)%2, sw = Math.round(Math.sin(t*3));
+      const R = (xx,yy,w,h,cl) => { c.fillStyle = cl; c.fillRect(D>0 ? Math.round(x+xx) : Math.round(x-xx-w), ys+yy, w, h); };
+      R(0,-6,9,3,fur); R(8,-9,4,4,fur); R(8,-10,1,1,fur); R(11,-10,1,1,fur); R(10,-8,1,1,'rgb(22,16,16)'); R(-1+sw,-12,1,6,fur); R(1,-3,1,3-st,fur); R(3,-3,1,2+st,fur); R(6,-3,1,2+st,fur); R(8,-3,1,3-st,fur); }
+    else if(t<7){ if(layer==='sill'){ const x = G.xs; sillBack(c,x-5,ys,fur,fur2,t,.6,0); } }
+    else if(t<28) back(7,[[3,5],[9,11.5],[16,18]],[[6,6.4,1],[13.5,13.9,2]]);
+    else exit(28);
+  } else {
+    if(t<6){ if(layer==='grass'){ const x = (D>0 ? -10 : PW+10)+(G.xs-(D>0 ? -10 : PW+10))*(t/6); gcat(c,x,gy(x),D,'walk',t,fur,fur2); } }
+    else if(t<8.5){ if(layer==='grass') gcat(c,G.xs,gy(G.xs),D,'crouch',t,fur,fur2); }
+    else if(t<9.7){ if(layer==='sill'){ const u = (t-8.5)/1.2, y = gy(G.xs)+((ys-8)-gy(G.xs))*u*u-Math.sin(u*Math.PI)*8; gcat(c,G.xs,y,D,'jump',t,fur,fur2); } }
+    else if(t<16.5){ if(layer==='sill'){ const tt = t-9.7; peek(c,G.xs-4,ys,tt,clamp((tt-4.6)/2,0,1),fur,fur2); } }
+    else if(t<19){ /* caiu: fora de vista */ }
+    else if(t<23){ if(layer==='grass') gcat(c,G.xs,gy(G.xs),D,'dazed',t,fur,fur2); }
+    else if(t<24.2){ if(layer==='sill'){ const u = (t-23)/1.2, y = gy(G.xs)+(ys-gy(G.xs))*u-Math.sin(u*Math.PI)*10; gcat(c,G.xs,y,D,'jump',t,fur,fur2); } }
+    else if(t<38) back(24.2,[[3,5],[9,11.5]],[[7,7.4,1]]);
+    else exit(38);
+  }
+}
+
 function drawPixel(dt){
   const c = px; TT += dt;
-  const m = minutesNow(), P = phase(m), B = bodies(m), K = KINDS[WX.kind];
+  SEA = seasonNow();
+  const m = minutesNow(), P = seaSky(phase(m),SEA), B = bodies(m), K = KINDS[WX.kind];
   const hy = Math.round(PH*.7);
   c.globalAlpha = 1;
   for(let y=0;y<hy+10;y+=3){ c.fillStyle = rgb(mixC(P.t,P.b,clamp(y/hy,0,1))); c.fillRect(0,y,PW,3); }
@@ -419,19 +576,22 @@ function drawPixel(dt){
   // colinas
   const farY = x => hy-4+Math.round(Math.sin(x*.045+1)*4+Math.sin(x*.11)*2);
   const nearY = x => hy+6+Math.round(Math.sin(x*.03+3)*5);
-  let far = mixC([18,26,48],[70,130,90],P.d); far = mixC(far,[160,90,70],P.g*.35);
-  let near = mixC([10,16,32],[45,100,70],P.d); near = mixC(near,[140,80,64],P.g*.3);
+  const [far, near] = seaGround(SEA,P);
   c.fillStyle = rgb(far); for(let x=0;x<PW;x++){ const y=farY(x); c.fillRect(x,y,1,PH-y); }
   c.fillStyle = rgb(near); for(let x=0;x<PW;x++){ const y=nearY(x); c.fillRect(x,y,1,PH-y); }
   // casinha (parede, telhado triangular, porta, janela acesa à noite e chaminé)
-  const hx = Math.round(PW*.74), by = nearY(hx)+3, wall = mixC([28,26,40],[176,140,112],P.d), roof = mixC([30,18,24],[140,60,50],P.d);
-  c.fillStyle = rgb(wall); c.fillRect(hx,by-7,11,7);
-  c.fillStyle = rgb(roof); for(let r=0;r<=6;r++) c.fillRect(hx-1+r,by-8-r,13-2*r,1);
-  c.fillStyle = rgb(mixC(roof,[0,0,0],.2)); c.fillRect(hx+8,by-13,2,5);
-  c.fillStyle = rgb(mixC([20,14,18],[96,60,44],P.d)); c.fillRect(hx+7,by-4,2,4);
-  c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)); c.fillRect(hx+2,by-5,3,3);
-  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+8+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-14-ph),1,1); }
+  const hx = houseX(), by = nearY(hx)+3, wall = mixC([28,26,40],[176,140,112],P.d); let roof = mixC([30,18,24],[140,60,50],P.d); if(SEA==='winter') roof = mixC(roof,mixC([150,160,190],[240,244,252],P.d),.8);
+  c.fillStyle = rgb(wall); c.fillRect(hx,by-12,20,12);
+  c.fillStyle = rgb(roof); for(let r=0;r<=9;r++) c.fillRect(hx-2+r,by-13-r,24-2*r,1);
+  c.fillStyle = rgb(mixC(roof,[0,0,0],.2)); c.fillRect(hx+14,by-24,3,9);
+  c.fillStyle = rgb(mixC([20,14,18],[96,60,44],P.d)); c.fillRect(hx+13,by-8,4,8);
+  c.fillStyle = rgb(mixC([250,210,110],[60,40,30],P.d*.8)); c.fillRect(hx+16,by-4,1,1);
+  c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)); c.fillRect(hx+3,by-9,5,5);
+  c.fillStyle = rgb(mixC(wall,[0,0,0],.45)); c.fillRect(hx+5,by-9,1,5); c.fillRect(hx+3,by-7,5,1);
+  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+15+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-25-ph),1,1); }
+  { const tx = Math.round(PW*.12); drawTree(c,SEA,P,tx,nearY(tx)+3,9,16); }
   drawWild(c,P,hy,nearY,farY);
+  drawSeasonParts(c,SEA,P,dt,0,0,PW,PH-6);
   // chuva
   if(WX.kind==='rain'||WX.kind==='storm'){
     c.fillStyle='rgba(190,210,255,.55)';
@@ -449,49 +609,58 @@ function drawPixel(dt){
   // vasinho no parapeito
   c.fillStyle='rgb(176,92,62)'; c.fillRect(10,PH-11,7,5); c.fillRect(9,PH-12,9,2);
   c.fillStyle='rgb(60,130,80)'; c.fillRect(13,PH-17,1,5); c.fillRect(11,PH-16,2,2); c.fillRect(15,PH-15,2,2); c.fillRect(12,PH-19,3,2);
+  if(SEA==='winter'){ c.fillStyle='rgba(245,248,255,.92)'; c.fillRect(0,PH-7,PW,1); }   // neve no peitoril
+  windowCat(c,P,'sill',nearY);
 }
 
 /* ---------- Cena: Lo-fi (quartinho aconchegante) ---------- */
 const dk = (c,f) => [c[0]*f, c[1]*f, c[2]*f];
 /* ---------- Gatinho: dorme, mas de vez em quando faz alguma coisa ---------- */
-const CAT = {act:'sleep', t0:0, dur:0, next:20};
-const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, bocejo:2.6, stretch:4.5, lavar:9, watch:22, walk:31};
+const CAT = {act:'sleep', t0:0, dur:0, next:20, caught:false};
+const CAT_DUR = {tail:3.5, ear:1.4, eye:4.5, bocejo:2.6, stretch:4.5, sentar:34, mosca:18.5, walk:31};
 const CAT_MUG = 31;   /* onde o gato para ao lado da caneca (x da frente do corpo) */
 const catWalkOK = () => PW-40-CAT_MUG >= 10;   /* sem espaço na mesa (tela estreita): não passeia */
 function catPick(){
   const m = minutesNow(), wet = WX.kind==='rain'||WX.kind==='storm', calm = m<330;
-  const w = {tail:18, ear:12, eye:wet?20:6, bocejo:calm?10:8, stretch:calm?8:18, lavar:calm?3:10, watch:wet?24:14, walk:calm?3:12};
+  const w = {tail:16, ear:10, eye:wet?18:5, bocejo:calm?10:8, stretch:calm?8:16, sentar:wet?26:calm?4:16, mosca:(wet||calm)?2:10, walk:calm?3:10};
   if(!catWalkOK()){ w.walk = 0; }
   let r = Math.random()*Object.values(w).reduce((a,b)=>a+b,0);
   for(const k in w){ r -= w[k]; if(r<=0) return k; }
   return 'tail';
 }
-function catStart(act){ CAT.act = act; CAT.t0 = TT; CAT.dur = CAT_DUR[act]||0; }
+function catStart(act){ CAT.act = act; CAT.t0 = TT; CAT.dur = CAT_DUR[act]||0; if(act==='mosca') CAT.caught = Math.random()<.45; }
 function catUpdate(){
   if(CAT.act==='sleep'){ if(TT>=CAT.next) catStart(catPick()); }
   else if(TT-CAT.t0>=CAT.dur){
-    if(CAT.act==='watch' && catWalkOK() && Math.random()<.8){ catStart('walk'); return; }   /* sentado, olha a janela e depois vai à caneca */
+    if(CAT.act==='sentar' && catWalkOK() && Math.random()<.7){ catStart('walk'); return; }   /* depois de sentar, vai até a caneca */
     CAT.act='sleep'; CAT.next = TT + (minutesNow()<330 ? 100+Math.random()*120 : 40+Math.random()*80);
   }
 }
+const blinkAt = (t,period,off) => (t+off)%period > period-.16;   /* pisca por 0,16 s a cada "period" segundos */
 function drawCat(c,dy,lum){
   catUpdate();
   const a = CAT.act, t = TT-CAT.t0, cx0 = PW-40;
-  const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum));
-  const eyeC = 'rgb(22,16,16)', pink = 'rgb(240,150,160)';   /* olhos: pontinhos pretos */
+  const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk([238,210,170],lum));
+  const eyeC = 'rgb(22,16,16)', pink = 'rgb(240,150,160)', tongueC = 'rgb(236,96,124)';   /* olhos: pontinhos pretos */
   let ox = cx0, fl = false;
   const F = (col,x,y,w,h) => { c.fillStyle = col; c.fillRect(fl ? ox+16-x-w : ox+x, y, w, h); };
-  /* gato sentado (de lado, virado para a esquerda): hd = cabeça baixa, paw = lavando o rosto */
-  const sit = (hd,paw,ty) => {
-    F(fur,4,dy-7,5,1); F(fur,3,dy-6,7,5); F(fur,3,dy-1,7,1);          /* anca redonda */
-    F(fur,2,dy-11,5,6);                                                  /* peito */
-    if(!paw){ F(fur,1,dy-6,2,6); F(fur,0,dy-1,3,1); }                    /* perna da frente esticada */
-    const hy = dy-16+hd;
-    F(fur,0,hy,6,5); F(fur,0,hy-2,1,2); F(fur,4,hy-2,1,2);               /* cabeça e orelhas */
-    F(eyeC,1,hy+2,1,1); F(eyeC,4,hy+2,1,1); F(pink,2,hy+3,2,1);
-    F(fur2,6,dy-10,1,3); F(fur2,7,dy-5,1,3);
-    F(fur,10,dy-3,3,2); F(fur,12,dy-6+ty,1,4);                           /* rabo */
-    if(paw){ const up = Math.round(Math.sin(t*6)); F(fur,-1,hy+3+up,2,3); F(fur,-1,dy-1,3,1); }
+  /* gato sentado (de lado, virado para a esquerda).
+     o: hd cabeça (0 alta … 4 baixa), closed olhos fechados, tongue língua, paw pata no rosto (pawUp sobe/desce),
+        swat pata esticada (0..1), lift pulo, ta/tw amplitude e velocidade do rabo */
+  const sit = o => {
+    const y = dy-(o.lift||0), hd = o.hd===undefined ? 1 : o.hd, hy = y-16+hd, ta = o.ta===undefined ? 1 : o.ta, tw = o.tw||2.2;
+    F(fur,4,y-7,5,1); F(fur,3,y-6,7,5); F(fur,3,y-1,7,1);          /* anca redonda */
+    F(fur,2,y-11,5,6); F(bib,2,y-10,2,5);                            /* peito claro */
+    if(!o.paw){ F(fur,1,y-6,2,6); F(bib,0,y-1,3,1); }                /* perna da frente */
+    F(fur,0,hy,6,5); F(fur,0,hy-2,1,2); F(fur,4,hy-2,1,2); F(fur2,2,hy,2,1);   /* cabeça, orelhas, listra */
+    F(bib,0,hy+3,3,2); F(pink,0,hy+3,1,1);                           /* focinho */
+    if(o.closed){ F(fur2,1,hy+2,1,1); F(fur2,4,hy+2,1,1); } else { F(eyeC,1,hy+2,1,1); F(eyeC,4,hy+2,1,1); }
+    if(o.tongue) F(tongueC,0,hy+5,2,1);
+    F(fur2,6,y-10,1,3); F(fur2,7,y-5,1,3);
+    F(fur,10,y-3,3,2);                                                /* rabo: sobe balançando */
+    for(let i=0;i<5;i++){ const off = Math.round(Math.sin(t*tw-i*.9)*ta*(i+1)/5); F(fur,12+off,y-4-i,i<3?2:1,1); }
+    if(o.paw){ const up = o.pawUp||0; F(fur,-1,hy+3+up,2,3); F(bib,-1,hy+3+up,2,1); F(fur,-1,y-1,3,1); }
+    if(o.swat>0){ const e = o.swat, L = Math.round(4*e)+2, hh = hy+1-Math.round(2*e); F(fur,-1-Math.round(4*e),hh,L,2); F(bib,-1-Math.round(4*e),hh,1,2); }
   };
   let zzz = false;
   if(a==='stretch'){
@@ -502,12 +671,41 @@ function drawCat(c,dy,lum){
     F(fur,14,dy-3-Math.round(3*e),3,2); F(fur,16,dy-5-Math.round(5*e),1,3);
     F(nose,-2-k,dy-4+k2,2,1); F(pink,-3-k,dy-3+k2,1,1);
     if(e>.5){ F(fur2,-3-k,dy-4+k2,2,1); }   /* olhinho apertado */
-  } else if(a==='watch'){
+  } else if(a==='sentar'){
     ox = cx0+2;
-    sit(Math.round(Math.sin(t*.7)*.6)+1, false, Math.round(Math.sin(t*2.5)));
-  } else if(a==='lavar'){
+    const blink = blinkAt(t,4.3,0) || blinkAt(t,7.1,1.9);
+    if(t<7)       sit({hd:1, closed:blink, ta:1, tw:1.6});                                    /* sentadinho, piscando */
+    else if(t<12) sit({hd:0, closed:blink, ta:1.2, tw:2});                                    /* olha pela janela */
+    else if(t<14) sit({hd:2, paw:true, pawUp:0, tongue:Math.floor(t*5)%2===0, closed:true});  /* lambe a patinha */
+    else if(t<20) sit({hd:1+(Math.sin(t*6)>0?1:0), paw:true, pawUp:Math.round(Math.sin(t*6)), closed:true});  /* lava o rosto */
+    else if(t<25) sit({hd:4, tongue:Math.floor(t*4)%2===0, closed:true});                     /* lambe o peito */
+    else if(t<30) sit({hd:1, closed:blink, ta:2.4, tw:6});                                    /* balança o rabo */
+    else          sit({hd:1+(Math.floor(t*.8)%2), closed:blinkAt(t,3,.5), ta:.8, tw:1.4});   /* acomoda */
+  } else if(a==='mosca'){
     ox = cx0+2;
-    sit(1+(Math.sin(t*6)>0?1:0), true, Math.round(Math.sin(t*2)));
+    /* a mosca: entra voando, rodeia o gato; ele acompanha com a cabeça, dá patadas e (às vezes) pega */
+    let fx, fy, vis = true;
+    if(t<3.5){ const u = t/3.5; fx = cx0-60+48*u; fy = dy-26+Math.sin(t*6)*3-4*Math.sin(u*Math.PI); }
+    else if(t<11 || (!CAT.caught && t<11)){ fx = cx0-12+9*Math.sin(t*2.1)+3*Math.sin(t*6.7); fy = dy-24+6*Math.sin(t*2.9+1)+2*Math.sin(t*9); }
+    else { const ex = cx0-12+9*Math.sin(11*2.1)+3*Math.sin(11*6.7), ey = dy-24+6*Math.sin(11*2.9+1)+2*Math.sin(11*9); fx = ex-(t-11)*18; fy = ey-(t-11)*3; }
+    if(CAT.caught && t>=10.1) vis = false;
+    if(fx<-4 || fx>PW) vis = false;
+    const sw1 = t>=6.4 && t<7.0 ? Math.sin((t-6.4)/.6*Math.PI) : 0, sw2 = t>=9.5 && t<10.1 ? Math.sin((t-9.5)/.6*Math.PI) : 0, sw = Math.max(sw1,sw2);
+    const blink = blinkAt(t,4.3,0);
+    if(t<3.2)        sit({hd:fy<dy-26?0:1, closed:blink, ta:1, tw:2});
+    else if(t<10.1)  sit({hd:fy<dy-27?0:fy>dy-21?2:1, closed:false, ta:2.2, tw:9, swat:sw, lift:Math.round(3*sw)});
+    else if(CAT.caught){
+      if(t<13)       sit({hd:3, paw:true, pawUp:0, tongue:Math.floor(t*5)%2===0, closed:false, ta:1.5, tw:5});      /* olha e lambe a patinha */
+      else           sit({hd:1+(Math.sin(t*6)>0?1:0), paw:true, pawUp:Math.round(Math.sin(t*6)), closed:true});     /* lava o rosto */
+    } else {
+      if(t<15)       sit({hd:fy<dy-27?0:1, closed:false, ta:2.4, tw:8});
+      else           sit({hd:1, closed:blinkAt(t,3,.5), ta:.8, tw:1.4});
+    }
+    if(vis){
+      const light = lum<.78, fyr = Math.round(fy), fxr = Math.round(fx);
+      c.fillStyle = light ? 'rgb(235,235,246)' : 'rgb(24,20,20)'; c.fillRect(fxr,fyr,2,1);
+      c.fillStyle = light ? 'rgba(235,235,246,.7)' : 'rgba(60,60,70,.7)'; c.fillRect(fxr+(Math.floor(TT*30)%2),fyr-1,1,1);
+    }
   } else if(a==='walk'){
     const D = cx0-CAT_MUG; let p = 0, moving = false, mode = 'walk';
     if(t<11){ p = t/11; moving = true; }
@@ -515,7 +713,7 @@ function drawCat(c,dy,lum){
     else if(t<30){ p = 1-(t-19)/11; moving = true; fl = true; }
     ox = cx0 - Math.round(p*D);
     if(mode==='sit'){
-      sit(Math.floor(t*.8)%2===0 ? 2 : 1, false, Math.round(Math.sin(t*3)));
+      sit({hd:Math.floor(t*.8)%2===0 ? 2 : 1, closed:blinkAt(t,4.3,.7), ta:1.2, tw:3});
     } else {
       const st = moving ? Math.floor(t*6)%2 : 0, sw = Math.round(Math.sin(t*3));
       F(fur,3,dy-9,12,4);
@@ -549,14 +747,28 @@ function drawCat(c,dy,lum){
   }
 }
 
+/* ---------- Passarinhos no céu do Lo-fi (só de dia e sem chuva) ---------- */
+const BIRDS = {list:[], next:14};
+function birdsTick(dt,P){
+  if(TT>=BIRDS.next){
+    if(P.d>.4 && WX.kind!=='rain' && WX.kind!=='storm' && WX.kind!=='fog'){
+      const n = 1+Math.floor(Math.random()*3), dir = Math.random()<.5?1:-1, y = .06+Math.random()*.28, sp = 9+Math.random()*7;
+      for(let i=0;i<n;i++) BIRDS.list.push({u:-.06-i*.07, dir, y:y+(i%2?.03:-.02)*i, sp, ph:Math.random()*6});
+      BIRDS.next = TT+35+Math.random()*60;
+    } else BIRDS.next = TT+20;
+  }
+}
+
 function drawLofi(dt){
   const c = px; TT += dt;
-  const m = minutesNow(), P = phase(m), B = bodies(m), K = KINDS[WX.kind];
+  SEA = seasonNow();
+  const m = minutesNow(), P = seaSky(phase(m),SEA), B = bodies(m), K = KINDS[WX.kind];
   c.globalAlpha = 1;
   const dy = Math.round(PH*.88), lum = .55+.45*P.d;
   const wood = dk([118,78,48],lum), woodL = dk([150,104,66],lum);
   // parede
   let wall = mixC([30,26,48],[108,88,112],P.d*.85); wall = mixC(wall,[150,96,96],P.g*.25);
+  wall = mixC(wall, SEA==='winter'?[70,92,150]:SEA==='autumn'?[176,104,60]:SEA==='summer'?[170,118,72]:[120,150,110], .1);
   c.fillStyle = rgb(wall); c.fillRect(0,0,PW,PH);
   // janela: medidas
   const ww = Math.round(Math.min(PW*.6,110)), x0 = Math.round((PW-ww)/2), y0 = Math.max(3,Math.round(PH*.03));
@@ -603,10 +815,20 @@ function drawLofi(dt){
     const x = x0+Math.round(((o.x+18)/(PW+34))*(ww+16))-8, y = y0+3+Math.round(((o.y-4)/(PH*.35))*wh*.3);
     c.fillRect(x,y+2,9,3); c.fillRect(x+2,y+1,5,2); c.fillRect(x+4,y,3,2);
   }
-  let far = mixC([18,26,48],[70,130,90],P.d); far = mixC(far,[160,90,70],P.g*.35);
-  let near = mixC([10,16,32],[45,100,70],P.d); near = mixC(near,[140,80,64],P.g*.3);
+  birdsTick(dt,P);
+  { const bc = P.d>.4 ? 'rgb(34,34,46)' : 'rgb(20,22,34)';
+    for(let i=BIRDS.list.length-1;i>=0;i--){ const b = BIRDS.list[i]; b.u += dt*b.sp/ww; if(b.u>1.1){ BIRDS.list.splice(i,1); continue; }
+      const bx = x0+Math.round((b.dir>0 ? b.u : 1-b.u)*(ww+10))-5, by = y0+3+Math.round(b.y*(hyv-y0))+Math.round(Math.sin(TT*1.3+b.ph)*1.5), f = Math.floor(TT*7+b.ph)%3;
+      c.fillStyle = bc;
+      if(f===0){ c.fillRect(bx,by,1,1); c.fillRect(bx+1,by+1,3,1); c.fillRect(bx+4,by,1,1); }          /* asas para cima */
+      else if(f===1){ c.fillRect(bx,by,5,1); }                                                           /* planando */
+      else { c.fillRect(bx,by+1,1,1); c.fillRect(bx+1,by,3,1); c.fillRect(bx+4,by+1,1,1); }             /* asas para baixo */
+    } }
+  const [far, near] = seaGround(SEA,P);
   c.fillStyle = rgb(far);  for(let x=x0;x<x1;x++){ const y=hyv+Math.round(Math.sin(x*.07)*3+Math.sin(x*.16)*1.5); c.fillRect(x,y,1,y1-y); }
   c.fillStyle = rgb(near); for(let x=x0;x<x1;x++){ const y=hyv+6+Math.round(Math.sin(x*.05+2)*3); c.fillRect(x,y,1,y1-y); }
+  drawTree(c,SEA,P,x0+Math.round(ww*.8),hyv+8,5,8);
+  drawSeasonParts(c,SEA,P,dt,x0,y0,ww,wh);
   if(WX.kind==='rain'||WX.kind==='storm'){
     c.fillStyle = 'rgba(190,210,255,.6)';
     for(const d of DROPS){ d.y += d.v*dt; d.x += dt*10; if(d.y>PH){ d.y=-3; d.x=Math.random()*PW; } if(d.x>PW) d.x=0; c.fillRect(x0+((d.x%ww)|0), y0+((d.y%wh)|0),1,3); }
@@ -617,6 +839,7 @@ function drawLofi(dt){
   // travessas e peitoril
   c.fillStyle = rgb(wood); c.fillRect(x0+Math.round(ww/2)-1,y0,2,wh); c.fillRect(x0,y0+Math.round(wh*.5),ww,2);
   c.fillStyle = rgb(woodL); c.fillRect(x0-4,y1+2,ww+8,2);
+  if(SEA==='winter'){ c.fillStyle = 'rgba(245,248,255,.95)'; c.fillRect(x0-4,y1+1,ww+8,1); }
   // cortinas
   const cw = Math.max(3,Math.round(ww*.1)), cur = dk(mixC([120,70,90],[205,140,150],P.d),lum);
   c.fillStyle = rgb(cur); c.fillRect(x0-2,y0-3,cw,wh+6); c.fillRect(x1+2-cw,y0-3,cw,wh+6);
@@ -636,6 +859,13 @@ function drawLofi(dt){
   c.fillStyle = rgb(dk([236,232,224],lum)); c.fillRect(mx,dy-5,5,5); c.fillRect(mx+5,dy-4,1,3);
   c.fillStyle = rgb(dk([90,56,40],lum)); c.fillRect(mx+1,dy-5,3,1);
   for(let i=0;i<3;i++){ const ph=(TT*5+i*3.3)%10; c.fillStyle=`rgba(255,255,255,${(1-ph/10)*.5})`; c.fillRect(mx+1+i+Math.round(Math.sin(TT*2+i*2)),Math.round(dy-7-ph),1,1); }
+  // item da estação (entre o abajur e a caneca)
+  { const ix = 16;
+    if(SEA==='spring'){ c.fillStyle = rgb(dk([176,92,62],lum)); c.fillRect(ix+1,dy-3,4,3); c.fillStyle = rgb(dk([60,130,80],lum)); c.fillRect(ix+3,dy-8,1,5); c.fillStyle = rgb(dk([240,130,170],lum)); c.fillRect(ix+2,dy-10,3,2); c.fillRect(ix+3,dy-11,1,1); c.fillStyle = rgb(dk([255,220,90],lum)); c.fillRect(ix+3,dy-10,1,1); }
+    else if(SEA==='summer'){ c.fillStyle = 'rgba(255,236,150,.85)'; c.fillRect(ix+1,dy-5,4,5); c.fillStyle = rgb(dk([120,200,90],lum)); c.fillRect(ix+1,dy-5,4,1); c.fillStyle = rgb(dk([240,90,90],lum)); c.fillRect(ix+4,dy-8,1,4); c.fillStyle = rgb(dk([250,230,90],lum)); c.fillRect(ix,dy-6,2,1); }
+    else if(SEA==='autumn'){ c.fillStyle = rgb(dk([226,118,36],lum)); c.fillRect(ix,dy-4,6,4); c.fillRect(ix+1,dy-5,4,1); c.fillStyle = rgb(dk([170,80,24],lum)); c.fillRect(ix+2,dy-4,1,4); c.fillRect(ix+4,dy-4,1,4); c.fillStyle = rgb(dk([70,110,50],lum)); c.fillRect(ix+3,dy-7,1,2); }
+    else { c.fillStyle = rgb(dk([210,70,70],lum)); c.fillRect(ix+2,dy-5,2,5); c.fillStyle = 'rgb(255,214,120)'; c.fillRect(ix+2,dy-7-(Math.sin(TT*9)>.3?1:0),2,2); c.fillStyle = 'rgba(255,210,130,.12)'; disc(c,ix+3,dy-6,6); }
+  }
   // livros
   const bx = 34;
   c.fillStyle = rgb(dk([120,70,80],lum)); c.fillRect(bx,dy-3,10,3);
@@ -669,9 +899,7 @@ function sizeAurora(){
 }
 function drawAurora(dt){
   AT += dt;
-  const m = minutesNow(), P = phase(m);
-  const bg = mixC(P.t,[0,0,0],.72);
-  au.fillStyle = rgb(bg,.14); au.fillRect(0,0,cvAu.width,cvAu.height);
+  au.fillStyle = 'rgba(0,0,0,.14)'; au.fillRect(0,0,cvAu.width,cvAu.height);   /* fundo preto: o rastro some até o preto puro */
   au.lineWidth = 1.4*DPR; au.lineCap = 'round';
   // combinações de cores que se revezam devagar (troca suave a cada ~80 s)
   const per = 80, ia = (AP0+Math.floor(AT/per))%APAL.length, ib = (ia+1)%APAL.length, tb = sstep(per-16,per,AT%per);
@@ -957,6 +1185,7 @@ function applyLang(){
   const nt = [...$('coffeeBox').querySelectorAll('div')].pop(); if(nt) nt.textContent = tr('pixNote');
   $('close').textContent = tr('close');
   if(SIM===null) $('simLbl').textContent = '('+tr('real')+')';
+  $('seaH').textContent = tr('season'); buildSeaChips();
   fillCountries(); buildChips(); setScene(scene,false); updateWx(); lastDate = ''; tickClock();
   document.querySelectorAll('#rowLang .chip').forEach(b => b.classList.toggle('sel', b.dataset.l===LANGPREF));
   $('locList').textContent = ''; $('locMsg').textContent = '';
