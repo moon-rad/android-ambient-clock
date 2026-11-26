@@ -707,8 +707,19 @@ function lieRows(a,t,DUR){
   if(a==='bocejo' && t>.3 && t<DUR-.3){ for(const x of [3,4,5]) setPx(R,x,7,'M'); for(const x of [3,4]) setPx(R,x,8,'M'); }   /* bocejo */
   return R;
 }
+const CAT_OUTLINE = false;   /* true = com contorno na cor das listras; false = sem contorno (só some o contorno de fora, os traços internos ficam) */
+const NOOUT_CACHE = new Map();
+function catRows(rows){
+  if(CAT_OUTLINE) return rows;
+  let r = NOOUT_CACHE.get(rows); if(r) return r;
+  const h = rows.length, w = rows[0].length, T = (x,y) => x<0 || y<0 || y>=h || x>=w || rows[y][x]==='.';
+  const pick = (x,y) => { for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0]]){ const q = (rows[y+dy]||'')[x+dx]; if(q && q!=='.' && q!=='O') return q==='S'||q==='E'||q==='N'||q==='T'||q==='M' ? 'F' : q; } return null; };
+  r = rows.map((s,y) => s.split('').map((ch,x) => { if(ch!=='O' || !(T(x-1,y)||T(x+1,y)||T(x,y-1)||T(x,y+1))) return ch; return pick(x,y) || '.'; }).join(''));   /* o contorno vira pelo (ou cremoso, junto do claro): mesmo tamanho, sem a linha escura */
+  if(typeof rows==='object') NOOUT_CACHE.set(rows,r);
+  return r;
+}
 function drawSpr(c,name,cx,by,S,fl,lum){
-  const rows = typeof name==='string' ? CSPR[name] : name, h = rows.length, w = rows[0].length, left = cx-w*S/2, cols = {};
+  const rows = catRows(typeof name==='string' ? CSPR[name] : name), h = rows.length, w = rows[0].length, left = cx-w*S/2, cols = {};
   for(const k in CPALD) cols[k] = rgb(dk(CPALD[k],lum));
   for(let j=0;j<h;j++){
     const y0 = Math.round(by-(h-j)*S), y1 = Math.round(by-(h-j-1)*S), hh = Math.max(1,y1-y0), r = rows[j];
