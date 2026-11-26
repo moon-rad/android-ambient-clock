@@ -50,6 +50,12 @@ Relógio ambiente para Android com quatro cenas (Janela em pixel art, quartinho 
 
 **Gerar um APK novo:** aba **Actions → Build APK → Run workflow**.
 
+## Support / Apoie
+
+If you enjoy the clock, you can sponsor the project: [💜 GitHub Sponsors](https://github.com/sponsors/moon-rad)
+
+Gostou do relógio? Apoie o projeto: [💜 GitHub Sponsors](https://github.com/sponsors/moon-rad)
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
