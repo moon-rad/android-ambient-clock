@@ -680,10 +680,22 @@ function catUpdate(){
   }
 }
 const blinkAt = (t,period,off) => (t+off)%period > period-.16;   /* pisca por 0,16 s a cada "period" segundos */
+const VOFF = document.createElement('canvas'); VOFF.width = 110; VOFF.height = 70; const VCTX = VOFF.getContext('2d', {willReadFrequently:true});
 function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras cenas {act,t,ox,fl,s,o,dur} */
+  if(ov && ov.vid && !ov._in){   /* estilo 8-bit com contorno escuro: desenha num canvas auxiliar, contorna e copia */
+    const AX = 40, AY = 56, W = VOFF.width, H = VOFF.height; VCTX.clearRect(0,0,W,H);
+    drawCat(VCTX,AY,lum,Object.assign({},ov,{_in:true,ox:AX}));
+    const id = VCTX.getImageData(0,0,W,H), d = id.data, al = i => d[i*4+3] > 40, out = [];
+    for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i = y*W+x; if(!al(i) && (al(i-1)||al(i+1)||al(i-W)||al(i+W))) out.push(i); }
+    const oc = [60*lum,22*lum,30*lum]; for(const i of out){ d[i*4] = oc[0]; d[i*4+1] = oc[1]; d[i*4+2] = oc[2]; d[i*4+3] = 255; }
+    VCTX.putImageData(id,0,0);
+    const pv = c.imageSmoothingEnabled; c.imageSmoothingEnabled = false; c.drawImage(VOFF,ov.ox-AX,dy-AY); c.imageSmoothingEnabled = pv;
+    return;
+  }
   if(!ov) catUpdate();
   const a = ov ? ov.act : CAT.act, t = ov ? ov.t : TT-CAT.t0, cx0 = ov ? ov.ox : PW-40, S = ov ? (ov.s||1) : 1, DUR = ov ? (ov.dur||30) : CAT.dur;
-  const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk([238,210,170],lum));
+  const V = !!(ov && ov.vid);
+  const fur = rgb(dk(V?[238,172,52]:[214,140,70],lum)), fur2 = rgb(dk(V?[210,112,30]:[160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk(V?[236,232,170]:[238,210,170],lum));
   const eyeC = 'rgb(22,16,16)', pink = rgb(dk([240,150,160],lum)), tongueC = rgb(dk([236,96,124],lum));   /* olhos: pontinhos pretos */
   let ox = cx0, fl = ov ? !!ov.fl : false;
   const F = (col,x,y,w,h) => { const q = fl ? 16-x-w : x; c.fillStyle = col;
@@ -717,7 +729,19 @@ function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras 
     F(fur,15,dy-10,2,2); F(fur,16+sw,dy-17,1,8); F(fur2,16+sw+1,dy-18,1,1);   /* rabo erguido */
   };
   let zzz = false;
-  if(a==='sitpose'){ sit(ov.o||{}); }
+  if(a==='playpose'){   /* agachado, cabeça baixa perto da bolinha, bundinha pra cima, rabo erguido; a patinha bate na bolinha */
+    const o = ov.o||{}, tap = o.tap||0, sw = Math.round(Math.sin(t*5)), lk = Math.round(tap*3);
+    F(fur,2,dy-5,5,3);                       /* peito baixo */
+    F(fur,5,dy-7,8,5); F(fur,11,dy-9,5,7);   /* costas subindo até o bumbum */
+    F(fur2,7,dy-7,1,3); F(fur2,10,dy-8,1,3); F(fur2,13,dy-9,1,3);
+    F(fur,12,dy-3,2,3); F(fur,15,dy-3,2,3);  /* patas de trás */
+    F(fur,-3,dy-7,5,5); F(fur,-3,dy-9,1,2); F(fur,1,dy-9,1,2); F(fur2,-2,dy-8,3,1);   /* cabeça baixa e orelhas */
+    F(eyeC,-2,dy-5,1,1); F(eyeC,0,dy-5,1,1); F(pink,-3,dy-4,1,1);
+    F(fur,-4-lk,dy-2,4,2); F(bib,-4-lk,dy-2,1,2);                 /* patinha batendo */
+    F(fur,2,dy-2,2,2);                                             /* outra patinha */
+    F(fur,16,dy-10,2,2); F(fur,17+sw,dy-18,1,8); F(fur2,17+sw,dy-19,1,2);   /* rabo erguido balançando */
+  }
+  else if(a==='sitpose'){ sit(ov.o||{}); }
   else if(a==='walkpose'){ walkS(Math.floor(t*6)%2, Math.round(Math.sin(t*3))); }
   else if(a==='stretch'){
     const e = Math.min(1, Math.sin(Math.PI*clamp(t/DUR,0,1))*1.6);
@@ -789,7 +813,7 @@ function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras 
     if(a==='eye' && t>.5 && t<DUR-.9){ F(eyeC,-2,dy-5,1,1); }
     else if(a!=='bocejo') zzz = true;
   }
-  if(zzz){
+  if(zzz && !V){
     const zt = (TT*1.6)%6;
     c.fillStyle = `rgba(255,255,255,${.75*(1-zt/6)})`;
     const zx = Math.round(cx0-4+zt*.8), zy = Math.round(dy-11-zt*1.6);
@@ -1029,12 +1053,17 @@ function drawSala(dt){
   R(catx-17,dy+3,35,5,C(150,48,56)); R(catx-17,dy+3,35,1,gold); R(catx-17,dy+7,35,1,gold);
   if(SALA.t0===null) SALA.t0 = TT;
   if(TT-SALA.t0 > SALA.dur){ const [na,nd] = SALA_NEXT[SALA.act]; SALA.act = na; SALA.dur = nd; SALA.t0 = TT; }
-  const t = TT-SALA.t0, s = 1.25, cox = Math.round(catx-8*s), play = SALA.act==='play';
-  if(SALA.act==='sleep') drawCat(c,cf,Math.max(lum,.92),{act:(t%14<1.2?'ear':t%19<1.6?'tail':'sleep'),t,ox:cox,s,dur:3});
+  const t = TT-SALA.t0, s = 1.0, cox = Math.round(catx-8*s)-3, play = SALA.act==='play';
+  if(SALA.act==='sleep') drawCat(c,cf,Math.max(lum,.92),{vid:true,act:(t%14<1.2?'ear':t%19<1.6?'tail':'sleep'),t,ox:cox,s,dur:3});
   else {
-    const blink = (TT%4.2)<.15, ph = Math.sin(t*3.3), bx = cox-3-Math.round(5*Math.abs(Math.sin(t*1.1))), by = cf-2-(play ? Math.round(Math.abs(ph)*5) : 0);
-    drawCat(c,cf,Math.max(lum,.92),{act:'sitpose',t,ox:cox,s,o:play ? {hd:1+(ph>0?1:0),closed:false,ta:2.2,tw:7,swat:ph>.6?ph:0} : {hd:Math.floor(t*.5)%2?0:1,closed:blink,ta:1,tw:1.6}});
-    if(play){ R(bx,by-2,3,3,'rgb(226,60,60)'); R(bx,by-2,1,1,'rgba(255,255,255,.85)'); R(bx+1,by-3,1,1,gold); }
+    /* brincadeira: o gato se agacha e bate com a patinha na bolinha, que dá uma rolada e volta */
+    const blink = (TT%4.2)<.15;
+    if(play){
+      const CY = 1.5, u = (t%CY)/CY, tap = u>.3&&u<.5 ? Math.sin((u-.3)/.2*Math.PI) : 0, kick = u<.3 ? 0 : Math.pow(Math.max(0,1-(u-.3)/.7),2);
+      const bx = cox-Math.round((5+4*kick)*s)-3, by = cf-3;
+      drawCat(c,cf,Math.max(lum,.92),{vid:true,act:'playpose',t,ox:cox,s,o:{tap}});
+      R(bx,by,3,3,'rgb(170,40,50)'); R(bx,by,1,1,'rgb(236,110,110)'); R(bx+(Math.floor(TT*8*kick)%2),by+2,1,1,'rgb(110,20,30)'); R(bx-1,by+3,5,1,'rgba(0,0,0,.25)');
+    } else drawCat(c,cf,Math.max(lum,.92),{vid:true,act:'sitpose',t,ox:cox,s,o:{hd:Math.floor(t*.5)%2?0:1,closed:blink,ta:1,tw:1.6}});
   }
 }
 
