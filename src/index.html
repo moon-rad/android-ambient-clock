@@ -119,9 +119,10 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
       <div id="coffee">
         <button class="chip" id="coffeeBtn" aria-expanded="false">☕ Me pague um café</button>
         <div id="coffeeBox" hidden>
-          Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!
+          Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo (ou pelo GitHub Sponsors, de qualquer país). Obrigado!
           <code id="pixKey">09fd2a9f-a5ff-48df-821a-ab631350c094</code>
           <button class="chip" id="pixCopy">Copiar chave Pix</button>
+          <a class="chip" id="sponsorLink" href="https://github.com/sponsors/moon-rad" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none">💜 GitHub Sponsors</a>
           <div style="margin-top:8px;font-size:12px;opacity:.55">Chave aleatória · Moonrad</div>
         </div>
       </div>
@@ -146,7 +147,7 @@ const T = {
     mygps:'Minha localização', gpsNone:'Este aparelho não oferece localização aqui.', gpsSearch:'Buscando sua localização…', gpsOk:'Pronto: usando a localização do aparelho (aproximada).',
     gpsDenied:'Permissão negada. Libere a localização nas permissões do app e tente de novo.', gpsFail:'Não consegui obter a localização.',
     noCity:'Nenhuma cidade encontrada. Confira o país e o nome.', searching:'Buscando…', offline:'Sem internet para buscar cidades agora.', picked:'Pronto: agora mostrando ',
-    language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
+    language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo (ou pelo GitHub Sponsors, de qualquer país). Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
     sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno', sc_sala:'Sala de Natal', sc_vila:'Vila nevada',
     wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade',
     rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt',
@@ -159,7 +160,7 @@ const T = {
     mygps:'My location', gpsNone:'This device does not offer location here.', gpsSearch:'Finding your location…', gpsOk:'Done: using the device location (approximate).',
     gpsDenied:'Permission denied. Allow location in the app permissions and try again.', gpsFail:'Could not get the location.',
     noCity:'No city found. Check the country and the name.', searching:'Searching…', offline:'No internet to search cities right now.', picked:'Done: now showing ',
-    language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, a coffee via Pix (Brazil) is welcome. Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
+    language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, you can sponsor on GitHub (any country) or send a coffee via Pix (Brazil). Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
     sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night', sc_sala:'Christmas room', sc_vila:'Snowy village',
     wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm',
     rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en',
@@ -495,18 +496,19 @@ function drawWild(c,P,hy,nearY,farY){
 
 /* ---------- Gato na janela (cena Janela): passa pelo peitoril, olha a paisagem, pula pra grama e vai pra casinha;
               ou tenta subir, fica pendurado, cai (haha) e na segunda vez consegue ---------- */
-const houseX = () => Math.min(Math.round(PW*.74), PW-27);
+const HK = 1.45;   /* escala da casinha */
+const houseX = () => Math.min(Math.round(PW*.72), PW-Math.round(24*HK)-2);
 const ANI = .7;
 const SK = 1.6;   /* escala do gato no peitoril (dentro da janela): proporcional ao vidro */
 const fSK = (c,x,y,col,ox,oy,w,h) => { const x0 = Math.round(ox*SK), x1 = Math.round((ox+w)*SK), y0 = Math.round(oy*SK), y1 = Math.round((oy+h)*SK); c.fillStyle = col; c.fillRect(x+x0,y+y0,Math.max(1,x1-x0),Math.max(1,y1-y0)); };   /* escala dos bichos lá fora: pequenos perto da casa */
 function wcGeom(D,act){
-  const xs = Math.round(act==='gatoPula' ? PW*.26 : D>0 ? PW*.26 : PW*.7), hxd = houseX()+14, sg = hxd>xs ? 1 : -1, xj = xs+sg*10;
+  const xs = Math.round(act==='gatoPula' ? PW*.26 : D>0 ? PW*.26 : PW*.7), hxd = houseX()+Math.round(15*HK), sg = hxd>xs ? 1 : -1, xj = xs+sg*10;
   return {xs, hxd, sg, xj, W: Math.abs(hxd-xj)/12};
 }
 const wcDur = (act,D) => (act==='gatoJanela' ? 28 : 28.5) + 3.2 + wcGeom(D,act).W + 1;
 let WCL = 1;   /* luminosidade da cena, para o gato do lo-fi na grama */
 function gcat(c,cx,by,D,pose,t){
-  const s = .8, ox = Math.round(cx-8*s);
+  const s = .6, ox = Math.round(cx-8*s);
   if(pose==='dazed') drawCat(c,by,WCL,{act:'sitpose',t,ox,fl:D>0,s,o:{hd:1+(Math.sin(t*8)>0?1:0)}});
   else drawCat(c,by,WCL,{act:'walkpose',t:pose==='jump'?0:t,ox,fl:D>0,s});
 }
@@ -614,22 +616,23 @@ function drawPixel(dt){
   c.fillStyle = rgb(near); for(let x=0;x<PW;x++){ const y=nearY(x); c.fillRect(x,y,1,PH-y); }
   // casinha (parede, telhado triangular, porta, janela acesa à noite e chaminé)
   const hx = houseX(), by = nearY(hx)+3, wall = mixC([28,26,40],[176,140,112],P.d); let roof = mixC([30,18,24],[140,60,50],P.d); if(SEA==='winter') roof = mixC(roof,mixC([150,160,190],[240,244,252],P.d),.8);
-  c.fillStyle = rgb(wall); c.fillRect(hx,by-12,20,12);
-  c.fillStyle = rgb(roof); for(let r=0;r<=9;r++) c.fillRect(hx-2+r,by-13-r,24-2*r,1);
-  c.fillStyle = rgb(mixC(roof,[0,0,0],.2)); c.fillRect(hx+14,by-24,3,9);
-  c.fillStyle = rgb(mixC([20,14,18],[96,60,44],P.d)); c.fillRect(hx+13,by-8,4,8);
-  c.fillStyle = rgb(mixC([250,210,110],[60,40,30],P.d*.8)); c.fillRect(hx+16,by-4,1,1);
-  c.fillStyle = P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)); c.fillRect(hx+3,by-9,5,5);
-  c.fillStyle = rgb(mixC(wall,[0,0,0],.45)); c.fillRect(hx+5,by-9,1,5); c.fillRect(hx+3,by-7,5,1);
+  const HR = (col,dx,dy,w,h) => { const x0 = Math.round(dx*HK), x1 = Math.round((dx+w)*HK), y0 = Math.round(dy*HK), y1 = Math.round((dy+h)*HK); c.fillStyle = col; c.fillRect(hx+x0,by+y0,Math.max(1,x1-x0),Math.max(1,y1-y0)); };
+  HR(rgb(wall),0,-12,20,12);
+  for(let r=0;r<=9;r++) HR(rgb(roof),-2+r,-13-r,24-2*r,1);
+  HR(rgb(mixC(roof,[0,0,0],.2)),14,-24,3,9);
+  HR(rgb(mixC([20,14,18],[96,60,44],P.d)),13,-8,4,8);
+  HR(rgb(mixC([250,210,110],[60,40,30],P.d*.8)),16,-4,1,1);
+  HR(P.d<.5 ? 'rgb(255,205,110)' : rgb(mixC([150,190,220],[176,200,220],P.d)),3,-9,5,5);
+  HR(rgb(mixC(wall,[0,0,0],.45)),5,-9,1,5); HR(rgb(mixC(wall,[0,0,0],.45)),3,-7,5,1);
   if(xmasOn()){      /* pisca-pisca no telhado e no beiral */
     const cols = [[255,70,70],[255,214,80],[90,210,130],[100,160,255]], pts = [];
-    for(let r=0;r<=8;r+=2) pts.push([hx-2+r,by-13-r],[hx+21-r,by-13-r]);
-    for(let x=hx+1;x<hx+20;x+=3) pts.push([x,by-12]);
+    for(let r=0;r<=8;r+=2) pts.push([-2+r,-13-r],[21-r,-13-r]);
+    for(let x=1;x<20;x+=3) pts.push([x,-12]);
     pts.forEach((q,i)=>{ const lit = Math.floor(TT*1.6+i*.5)%2===0, col = cols[i%4];
-      if(lit && P.d<.65){ c.fillStyle = rgb(col,.2*(1-P.d)); c.fillRect(q[0]-1,q[1]-1,3,3); }
-      c.fillStyle = rgb(col, lit ? 1 : .3); c.fillRect(q[0],q[1],1,1); });
+      if(lit && P.d<.65){ c.fillStyle = rgb(col,.2*(1-P.d)); c.fillRect(hx+Math.round(q[0]*HK)-1,by+Math.round(q[1]*HK)-1,3,3); }
+      c.fillStyle = rgb(col, lit ? 1 : .3); c.fillRect(hx+Math.round(q[0]*HK),by+Math.round(q[1]*HK),1,1); });
   }
-  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+15+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-25-ph),1,1); }
+  if(P.d<.6 || WX.temp<20) for(let i=0;i<3;i++){ const ph=(TT*3+i*3.1)%9; c.fillStyle=`rgba(230,230,240,${(1-ph/9)*.45})`; c.fillRect(hx+Math.round(15*HK)+Math.round(Math.sin(TT+i*2)*1.2)+(ph>4?1:0),Math.round(by-25*HK-ph),1,1); }
   { const tx = Math.round(PW*.12); drawTree(c,SEA,P,tx,nearY(tx)+3,9,16); }
   drawWild(c,P,hy,nearY,farY);
   drawSeasonParts(c,SEA,P,dt,0,0,PW,PH-6);
@@ -678,10 +681,22 @@ function catUpdate(){
   }
 }
 const blinkAt = (t,period,off) => (t+off)%period > period-.16;   /* pisca por 0,16 s a cada "period" segundos */
+const VOFF = document.createElement('canvas'); VOFF.width = 110; VOFF.height = 70; const VCTX = VOFF.getContext('2d', {willReadFrequently:true});
 function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras cenas {act,t,ox,fl,s,o,dur} */
+  if(ov && ov.vid && !ov._in){   /* estilo 8-bit com contorno escuro: desenha num canvas auxiliar, contorna e copia */
+    const AX = 40, AY = 56, W = VOFF.width, H = VOFF.height; VCTX.clearRect(0,0,W,H);
+    drawCat(VCTX,AY,lum,Object.assign({},ov,{_in:true,ox:AX}));
+    const id = VCTX.getImageData(0,0,W,H), d = id.data, al = i => d[i*4+3] > 40, out = [];
+    for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i = y*W+x; if(!al(i) && (al(i-1)||al(i+1)||al(i-W)||al(i+W))) out.push(i); }
+    const oc = [60*lum,22*lum,30*lum]; for(const i of out){ d[i*4] = oc[0]; d[i*4+1] = oc[1]; d[i*4+2] = oc[2]; d[i*4+3] = 255; }
+    VCTX.putImageData(id,0,0);
+    const pv = c.imageSmoothingEnabled; c.imageSmoothingEnabled = false; c.drawImage(VOFF,ov.ox-AX,dy-AY); c.imageSmoothingEnabled = pv;
+    return;
+  }
   if(!ov) catUpdate();
   const a = ov ? ov.act : CAT.act, t = ov ? ov.t : TT-CAT.t0, cx0 = ov ? ov.ox : PW-40, S = ov ? (ov.s||1) : 1, DUR = ov ? (ov.dur||30) : CAT.dur;
-  const fur = rgb(dk([214,140,70],lum)), fur2 = rgb(dk([160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk([238,210,170],lum));
+  const V = !!(ov && ov.vid);
+  const fur = rgb(dk(V?[238,172,52]:[214,140,70],lum)), fur2 = rgb(dk(V?[210,112,30]:[160,92,42],lum)), nose = rgb(dk([60,36,30],lum)), bib = rgb(dk(V?[236,232,170]:[238,210,170],lum));
   const eyeC = 'rgb(22,16,16)', pink = rgb(dk([240,150,160],lum)), tongueC = rgb(dk([236,96,124],lum));   /* olhos: pontinhos pretos */
   let ox = cx0, fl = ov ? !!ov.fl : false;
   const F = (col,x,y,w,h) => { const q = fl ? 16-x-w : x; c.fillStyle = col;
@@ -715,7 +730,19 @@ function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras 
     F(fur,15,dy-10,2,2); F(fur,16+sw,dy-17,1,8); F(fur2,16+sw+1,dy-18,1,1);   /* rabo erguido */
   };
   let zzz = false;
-  if(a==='sitpose'){ sit(ov.o||{}); }
+  if(a==='playpose'){   /* agachado, cabeça baixa perto da bolinha, bundinha pra cima, rabo erguido; a patinha bate na bolinha */
+    const o = ov.o||{}, tap = o.tap||0, sw = Math.round(Math.sin(t*5)), lk = Math.round(tap*3);
+    F(fur,2,dy-5,5,3);                       /* peito baixo */
+    F(fur,5,dy-7,8,5); F(fur,11,dy-9,5,7);   /* costas subindo até o bumbum */
+    F(fur2,7,dy-7,1,3); F(fur2,10,dy-8,1,3); F(fur2,13,dy-9,1,3);
+    F(fur,12,dy-3,2,3); F(fur,15,dy-3,2,3);  /* patas de trás */
+    F(fur,-3,dy-7,5,5); F(fur,-3,dy-9,1,2); F(fur,1,dy-9,1,2); F(fur2,-2,dy-8,3,1);   /* cabeça baixa e orelhas */
+    F(eyeC,-2,dy-5,1,1); F(eyeC,0,dy-5,1,1); F(pink,-3,dy-4,1,1);
+    F(fur,-4-lk,dy-2,4,2); F(bib,-4-lk,dy-2,1,2);                 /* patinha batendo */
+    F(fur,2,dy-2,2,2);                                             /* outra patinha */
+    F(fur,16,dy-10,2,2); F(fur,17+sw,dy-18,1,8); F(fur2,17+sw,dy-19,1,2);   /* rabo erguido balançando */
+  }
+  else if(a==='sitpose'){ sit(ov.o||{}); }
   else if(a==='walkpose'){ walkS(Math.floor(t*6)%2, Math.round(Math.sin(t*3))); }
   else if(a==='stretch'){
     const e = Math.min(1, Math.sin(Math.PI*clamp(t/DUR,0,1))*1.6);
@@ -787,7 +814,7 @@ function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras 
     if(a==='eye' && t>.5 && t<DUR-.9){ F(eyeC,-2,dy-5,1,1); }
     else if(a!=='bocejo') zzz = true;
   }
-  if(zzz){
+  if(zzz && !V){
     const zt = (TT*1.6)%6;
     c.fillStyle = `rgba(255,255,255,${.75*(1-zt/6)})`;
     const zx = Math.round(cx0-4+zt*.8), zy = Math.round(dy-11-zt*1.6);
@@ -984,20 +1011,20 @@ function drawSala(dt){
   snowFall(c,SN1,dt,wx,wy,ww,wh,Math.max(8,Math.round(ww*wh/110)),.9);
   R(wx+Math.floor(ww/2)-1,wy,2,wh,wood); R(wx,wy+Math.round(wh*.55),ww,2,wood); R(wx-4,wy+wh+2,ww+8,2,woodL);
   /* árvore */
-  const cx = land ? Math.round(PW*.2) : 24, tb = dy+3, H = Math.min(66,dy-14), ty = tb-H, sc = H/46;
+  const cx = land ? Math.round(PW*.2) : 27, tb = dy+3, H = Math.min(66,dy-14), ty = tb-H, sc = H/46, wf = 1.3;   /* wf: largura da árvore */
   if(P.d<.7){ c.fillStyle = `rgba(255,200,120,${.05*(1-P.d)})`; disc(c,cx,tb-Math.round(H*.45),Math.round(26*sc)); }
   R(cx-2,tb-4,4,4,C(96,62,40));
   const g1 = C(34,120,70), g2 = C(24,92,54), g3 = C(48,142,84);
-  for(let i=0;i<H-4;i++){ const w = 3+(i%10)+Math.floor(i/10)*3; R(cx-Math.floor(w/2),ty+3+i,w,1,(i%10<2)?g3:(i%10>6?g2:g1)); }
+  for(let i=0;i<H-4;i++){ const w = Math.round((3+(i%10)+Math.floor(i/10)*3)*wf); R(cx-Math.floor(w/2),ty+3+i,w,1,(i%10<2)?g3:(i%10>6?g2:g1)); }
   const orn = [[-2,10,[230,60,60]],[3,15,[250,200,70]],[-6,21,[90,150,240]],[5,25,[240,120,190]],[-1,29,[230,60,60]],[7,34,[250,200,70]],[-8,36,[90,150,240]],[1,39,[240,120,190]],[-4,16,[250,200,70]]];
-  for(const [ox,oy,col] of orn){ const px2 = cx+Math.round(ox*sc), py2 = ty+Math.round(oy*sc); R(px2,py2,2,2,rgb(col)); R(px2,py2,1,1,'rgba(255,255,255,.75)'); }
+  for(const [ox,oy,col] of orn){ const px2 = cx+Math.round(ox*sc*wf), py2 = ty+Math.round(oy*sc); R(px2,py2,2,2,rgb(col)); R(px2,py2,1,1,'rgba(255,255,255,.75)'); }
   const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]];
-  for(let k=0;k<16;k++){ const ly = 4+Math.floor(hr(k)*(H-10)), w = 3+(ly%10)+Math.floor(ly/10)*3, lx = cx+Math.round((hr(k+20)-.5)*w*.85), lit = Math.floor(TT*1.6+k*.7)%2===0;
+  for(let k=0;k<16;k++){ const ly = 4+Math.floor(hr(k)*(H-10)), w = Math.round((3+(ly%10)+Math.floor(ly/10)*3)*wf), lx = cx+Math.round((hr(k+20)-.5)*w*.85), lit = Math.floor(TT*1.6+k*.7)%2===0;
     R(lx,ty+3+ly,1,1,rgb(lc[k%4],lit?1:.3)); if(lit){ c.fillStyle = rgb(lc[k%4],.14); c.fillRect(lx-1,ty+3+ly-1,3,3); } }
   const sp = .65+.35*Math.sin(TT*3); c.fillStyle = `rgba(255,226,110,${sp})`; c.fillRect(cx,ty-1,1,4); c.fillRect(cx-1,ty,3,1); c.fillRect(cx-2,ty+1,5,1);
   /* presentes */
   const gift = (x,w,h,col,rib) => { R(x,tb-h,w,h,rgb(dk(col,lum))); R(x+Math.floor(w/2),tb-h,1,h,rib); R(x,tb-Math.ceil(h/2),w,1,rib); R(x+Math.floor(w/2)-1,tb-h-1,3,1,rib); };
-  gift(cx-19,7,6,[200,50,50],gold); gift(cx+13,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-11,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+7,5,4,[150,90,200],gold);
+  gift(cx-22,7,6,[200,50,50],gold); gift(cx+16,6,5,[60,110,200],'rgb(240,230,230)'); gift(cx-13,5,4,[240,200,70],'rgb(220,60,60)'); gift(cx+10,5,4,[150,90,200],gold);
   /* lareira */
   const fw = 30, fh = 28, fx = land ? PW-fw-Math.round(PW*.12) : PW-fw-5, fb = dy+2;
   R(fx,fb-fh,fw,fh,C(128,58,48));
@@ -1023,16 +1050,21 @@ function drawSala(dt){
   const sock = [[210,50,50],[50,140,80],[70,110,210]];
   sock.forEach((col,i)=>{ const sx = fx+3+i*10; R(sx,fb-fh+1,4,2,'rgb(244,244,244)'); R(sx,fb-fh+3,4,6,rgb(dk(col,lum))); R(sx-2,fb-fh+8,6,3,rgb(dk(col,lum))); R(sx-2,fb-fh+10,2,1,'rgb(244,244,244)'); });
   /* tapete e gato */
-  const catx = Math.round((cx+19+fx)/2), cf = dy+6, ox = catx-8;
+  const catx = Math.round((cx+26+fx)/2), cf = dy+6, ox = catx-8;
   R(catx-17,dy+3,35,5,C(150,48,56)); R(catx-17,dy+3,35,1,gold); R(catx-17,dy+7,35,1,gold);
   if(SALA.t0===null) SALA.t0 = TT;
   if(TT-SALA.t0 > SALA.dur){ const [na,nd] = SALA_NEXT[SALA.act]; SALA.act = na; SALA.dur = nd; SALA.t0 = TT; }
-  const t = TT-SALA.t0, s = 1.25, cox = Math.round(catx-8*s), play = SALA.act==='play';
-  if(SALA.act==='sleep') drawCat(c,cf,Math.max(lum,.92),{act:(t%14<1.2?'ear':t%19<1.6?'tail':'sleep'),t,ox:cox,s,dur:3});
+  const t = TT-SALA.t0, s = 1.0, cox = Math.round(catx-8*s)-3, play = SALA.act==='play';
+  if(SALA.act==='sleep') drawCat(c,cf,Math.max(lum,.92),{vid:true,act:(t%14<1.2?'ear':t%19<1.6?'tail':'sleep'),t,ox:cox,s,dur:3});
   else {
-    const blink = (TT%4.2)<.15, ph = Math.sin(t*3.3), bx = cox-3-Math.round(5*Math.abs(Math.sin(t*1.1))), by = cf-2-(play ? Math.round(Math.abs(ph)*5) : 0);
-    drawCat(c,cf,Math.max(lum,.92),{act:'sitpose',t,ox:cox,s,o:play ? {hd:1+(ph>0?1:0),closed:false,ta:2.2,tw:7,swat:ph>.6?ph:0} : {hd:Math.floor(t*.5)%2?0:1,closed:blink,ta:1,tw:1.6}});
-    if(play){ R(bx,by-2,3,3,'rgb(226,60,60)'); R(bx,by-2,1,1,'rgba(255,255,255,.85)'); R(bx+1,by-3,1,1,gold); }
+    /* brincadeira: o gato se agacha e bate com a patinha na bolinha, que dá uma rolada e volta */
+    const blink = (TT%4.2)<.15;
+    if(play){
+      const CY = 1.5, u = (t%CY)/CY, tap = u>.3&&u<.5 ? Math.sin((u-.3)/.2*Math.PI) : 0, kick = u<.3 ? 0 : Math.pow(Math.max(0,1-(u-.3)/.7),2);
+      const bx = cox-Math.round((5+4*kick)*s)-3, by = cf-3;
+      drawCat(c,cf,Math.max(lum,.92),{vid:true,act:'playpose',t,ox:cox,s,o:{tap}});
+      R(bx,by,3,3,'rgb(170,40,50)'); R(bx,by,1,1,'rgb(236,110,110)'); R(bx+(Math.floor(TT*8*kick)%2),by+2,1,1,'rgb(110,20,30)'); R(bx-1,by+3,5,1,'rgba(0,0,0,.25)');
+    } else drawCat(c,cf,Math.max(lum,.92),{vid:true,act:'sitpose',t,ox:cox,s,o:{hd:Math.floor(t*.5)%2?0:1,closed:blink,ta:1,tw:1.6}});
   }
 }
 
