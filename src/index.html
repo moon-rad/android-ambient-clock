@@ -119,9 +119,10 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
       <div id="coffee">
         <button class="chip" id="coffeeBtn" aria-expanded="false">☕ Me pague um café</button>
         <div id="coffeeBox" hidden>
-          Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!
+          Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo (ou pelo GitHub Sponsors, de qualquer país). Obrigado!
           <code id="pixKey">09fd2a9f-a5ff-48df-821a-ab631350c094</code>
           <button class="chip" id="pixCopy">Copiar chave Pix</button>
+          <a class="chip" id="sponsorLink" href="https://github.com/sponsors/moon-rad" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none">💜 GitHub Sponsors</a>
           <div style="margin-top:8px;font-size:12px;opacity:.55">Chave aleatória · Moonrad</div>
         </div>
       </div>
@@ -146,7 +147,7 @@ const T = {
     mygps:'Minha localização', gpsNone:'Este aparelho não oferece localização aqui.', gpsSearch:'Buscando sua localização…', gpsOk:'Pronto: usando a localização do aparelho (aproximada).',
     gpsDenied:'Permissão negada. Libere a localização nas permissões do app e tente de novo.', gpsFail:'Não consegui obter a localização.',
     noCity:'Nenhuma cidade encontrada. Confira o país e o nome.', searching:'Buscando…', offline:'Sem internet para buscar cidades agora.', picked:'Pronto: agora mostrando ',
-    language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo. Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
+    language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo (ou pelo GitHub Sponsors, de qualquer país). Obrigado!', pixCopy:'Copiar chave Pix', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
     sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno', sc_sala:'Sala de Natal', sc_vila:'Vila nevada',
     wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade',
     rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt',
@@ -159,7 +160,7 @@ const T = {
     mygps:'My location', gpsNone:'This device does not offer location here.', gpsSearch:'Finding your location…', gpsOk:'Done: using the device location (approximate).',
     gpsDenied:'Permission denied. Allow location in the app permissions and try again.', gpsFail:'Could not get the location.',
     noCity:'No city found. Check the country and the name.', searching:'Searching…', offline:'No internet to search cities right now.', picked:'Done: now showing ',
-    language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, a coffee via Pix (Brazil) is welcome. Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
+    language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, you can sponsor on GitHub (any country) or send a coffee via Pix (Brazil). Thank you!', pixCopy:'Copy Pix key', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
     sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night', sc_sala:'Christmas room', sc_vila:'Snowy village',
     wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm',
     rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en',
