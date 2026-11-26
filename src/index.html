@@ -819,12 +819,35 @@ function breathe(c,reg,ox,oy,per,A,st){
     for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]===ym-1) pxl(c,p[0]+ox,p[1]+oy,col(p[0],p[1],p[2],p[3],p[4])); }
   }
 }
+/* Natal na Janela: pisca-pisca no telhado e no beiral da casinha (pontos medidos na arte; na vertical é a mesma casa deslocada) */
+const HOUSEL = (()=>{ const p = []; for(const y of [29,31,33,35,37,39,41]){ p.push([184-y,y]); const x = 129+y; if(!(x>=161&&x<=167&&y>=30&&y<=38)) p.push([x,y]); }
+  for(let x=143;x<=171;x+=4) p.push([x,43]); return p; })();
+function drawHouseLights(c, A, st, ox, oy, vertical){
+  const cols = [[255,70,70],[255,214,80],[90,210,130],[100,160,255]], sx = vertical ? -79 : 0, sy = vertical ? 81 : 0, gl = A.glass;
+  HOUSEL.forEach((q,i)=>{ const ax = q[0]+sx, ay = q[1]+sy; if(gl && !gl[ay*A.W+ax]) return;   /* some atrás da moldura */
+    const lit = Math.floor(TT*1.6+i*.5)%2===0, col = cols[i%4], x = ax+ox, y = ay+oy;
+    if(lit && st.d<.65){ c.fillStyle = 'rgba('+col[0]+','+col[1]+','+col[2]+','+(.2*(1-st.d))+')'; c.fillRect(x-1,y-1,3,3); }
+    c.fillStyle = 'rgba('+col[0]+','+col[1]+','+col[2]+','+(lit?1:.3)+')'; c.fillRect(x,y,1,1); });
+}
+/* Natal no Lo-fi: arvorezinha ao lado da caneca, com luzinhas piscando */
+function drawLofiTree(c, e, st, ox, oy, vertical){
+  /* na vertical o Alfredo deita ao lado da caneca e a tela corta as laterais: o pinheirinho fica no peitoril, acima da caneca */
+  const fk = .5+.5*st.d, cx = (vertical ? Math.round(e.mug[0]) : Math.round(e.mug[0])+12)+ox, dy = (vertical ? e.mugTop-3 : Math.round(e.mug[1]+3.5))+oy;
+  const K = col => 'rgb('+((col[0]*fk)|0)+','+((col[1]*fk)|0)+','+((col[2]*fk)|0)+')';
+  c.fillStyle = K([96,62,40]); c.fillRect(cx-1,dy-2,3,2);
+  [[3,9],[4,7],[5,5],[6,7],[7,5],[8,3],[9,5],[10,3],[11,1]].forEach(([h,w],i)=>{ c.fillStyle = i%3===0 ? K([28,98,58]) : K([40,126,74]); c.fillRect(cx-Math.floor(w/2),dy-h,w,1); });
+  const lc = [[255,80,80],[255,214,80],[110,170,255],[255,150,220]], L = [[-3,-3],[3,-3],[-1,-5],[1,-5],[-2,-7],[2,-7],[0,-9]];
+  L.forEach(([lx,ly],i)=>{ const lit = Math.floor(TT*1.6+i*.55)%2===0, k = lc[i%4]; c.fillStyle = 'rgba('+k[0]+','+k[1]+','+k[2]+','+(lit?1:.3)+')'; c.fillRect(cx+lx,dy+ly,1,1); });
+  const sp = .7+.3*Math.sin(TT*3); c.fillStyle = 'rgba(255,226,110,'+sp+')'; c.fillRect(cx,dy-14,1,1); c.fillRect(cx-1,dy-13,3,1); c.fillRect(cx,dy-12,1,1);
+  if(st.d<.65) glowAt(c,cx,dy-6,8,'#ffc878',.07*(1-st.d));
+}
 function drawExtras(c, art, A, st, ox, oy, dt){
   const e = A.meta.extras; if(!e) return;
   const n = st.night, tw = TT;
-  if(art==='janela') drawSheep(c,e,st,ox,oy,dt);
+  if(art==='janela'){ drawSheep(c,e,st,ox,oy,dt); if(xmasOn()) drawHouseLights(c,A,st,ox,oy,ART.orient==='vertical'); }
   if(art==='lofi'){
     if(e.lamp) glowAt(c,e.lamp[0]+ox,e.lamp[1]+oy,6,'#ffd070',(.10+.05*Math.sin(tw*1.3))*(.4+.6*n));
+    if(e.mug && xmasOn()) drawLofiTree(c,e,st,ox,oy,A.H>A.W);
     if(e.mug){ const x = Math.round(e.mug[0])+ox; for(let k=0;k<3;k++){ const u = (tw*.5+k/3)%1; pxl(c,x+Math.round(Math.sin(tw*2+k*2)),e.mugTop+oy-1-u*7,'#ffffff',.55*(1-u)); } }
   }
   else if(art==='natal'){
