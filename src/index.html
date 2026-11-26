@@ -805,7 +805,7 @@ function drawCat(c,dy,lum,ov){   /* ov: desenha o MESMO gato do lo-fi em outras 
   if(zzz){   /* "z z Z" subindo acima da cabeça */
     const LW = 24, lx = (ox+8*S)-LW*S/2, hx = Math.round(fl ? lx+(LW-4.5)*S : lx+4.5*S), top = dy-10*S;
     for(let n=0;n<3;n++){
-      const u = ((TT*.5)+n/3)%1, big = n===2, zx = Math.round(hx-2+u*7*S), zy = Math.round(top-5-u*14*S);
+      const u = ((TT*.2)+n/3)%1, big = n===2, zx = Math.round(hx-2+u*7*S), zy = Math.round(top-5-u*14*S);
       c.fillStyle = `rgba(255,255,255,${.85*Math.sin(Math.PI*Math.min(1,u*1.12))})`;
       if(!big){ c.fillRect(zx,zy,4,1); c.fillRect(zx+2,zy+1,1,1); c.fillRect(zx+1,zy+2,1,1); c.fillRect(zx,zy+3,4,1); }
       else { c.fillRect(zx,zy,5,1); c.fillRect(zx+3,zy+1,1,1); c.fillRect(zx+2,zy+2,1,1); c.fillRect(zx+1,zy+3,1,1); c.fillRect(zx,zy+4,5,1); }
