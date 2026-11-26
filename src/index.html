@@ -415,6 +415,11 @@ const ARTD = JSON.parse(document.getElementById('artdata').textContent);
 const SPRD = ARTD.sprites;
 const ARTKEY = {window:'janela', lofi:'lofi', night:'noite', aurora:'aurora', desert:'deserto_sci_fi', hills:'colinas_fantasia', sala:'natal', vila:'vila'};
 const IMGS = {}, SPR = {}, FRM = {};
+/* Colinas: dois trechos (1 = dia, 2 = fim de tarde) com neblina entre eles */
+const DUSKC = [[120,96,176],[142,109,165],[165,123,154],[187,137,143],[210,150,132],[232,164,121]];
+const DUSKB = {vertical:[0,21,41,61,81,101,118], horizontal:[0,7,13,20,26,33,36]};
+const HILLS = {t:1, ph:0, tm:0, c:0, last:-9, cv:null};
+const HT = {stay:25, up:1.5, hold:.3, down:1.5};
 let ARTLOAD = 0, ARTTOT = 0;
 const ARTREADY = () => ARTLOAD >= ARTTOT && ARTTOT > 0;
 const FLOWERC = new Set([0xfad246,0xf07896,0xfafafa,0x9696f0,0xfadc5a,0xfad25a]);
@@ -471,7 +476,7 @@ function composeBase(A, st, ox, oy){
   const aw = A.W, ah = A.H, W = PW, H = PH, out = new ImageData(W,H), o = out.data;
   const D = (A.dia||A.x).data, N = A.noite ? A.noite.data : null;
   const nt = st.night, gk = st.gk, fog = st.fog, S = st.sea, seasonal = st.seasonal;
-  const gm = st.gold;
+  const gm = st.gold, du = st.dusk||0, DB = DUSKB[ah>aw?'vertical':'horizontal'];
   for(let y=0;y<H;y++){
     const ay = Math.min(ah-1, Math.max(0, y-oy));
     for(let x=0;x<W;x++){
@@ -488,6 +493,7 @@ function composeBase(A, st, ox, oy){
         R = dr*(1-nt*(1-NT.m[0]))+NT.a[0]*nt; G = dg*(1-nt*(1-NT.m[1]))+NT.a[1]*nt; B = db*(1-nt*(1-NT.m[2]))+NT.a[2]*nt;
       } else { R = dr; G = dg; B = db; }
       if(gm>0){ R *= 1-gm*.05; G *= 1-gm*.2; B *= 1-gm*.38; R += gm*14; }
+      if(du>0 && A.sky[p]){ let bi = 0; while(bi<5 && ay>=DB[bi+1]) bi++; const dc = DUSKC[bi]; R = lerp(R,dc[0],du); G = lerp(G,dc[1],du); B = lerp(B,dc[2],du); }
       if(gk>0 || fog>0){
         const sk = A.sky[p], gl = A.glass[p];
         if(sk || gl){
@@ -511,7 +517,7 @@ function maskCanvas(A, arr, ox, oy){
 function artState(art){
   const m = minutesNow(), P = phase(m), K = KINDS[WX.kind], B = bodies(m);
   const seasonal = art==='janela' || art==='lofi' || art==='colinas_fantasia';
-  const fn = art==='noite'; return {m, P, K, B, d:fn?0:P.d, night:fn?1:1-P.d, gold:fn?0:Math.min(.6,P.g*.7), gk:K.g, fog:WX.kind==='fog' ? .55 : 0, sea:seasonNow(), seasonal, tintNight:(art==='deserto_sci_fi'||art==='colinas_fantasia')};
+  const fn = art==='noite'; return {m, P, K, B, d:fn?0:P.d, night:fn?1:1-P.d, gold:fn?0:Math.min(.6,P.g*.7), dusk:(art==='colinas_fantasia'&&HILLS.t===2) ? P.d*(1-K.g) : 0, gk:K.g, fog:WX.kind==='fog' ? .55 : 0, sea:seasonNow(), seasonal, tintNight:(art==='deserto_sci_fi'||art==='colinas_fantasia')};
 }
 /* ----- camadas por cima da arte: sol, lua, estrelas, nuvens, chuva, neve, névoa ----- */
 let CLOUDL = [], BIGCL = [], DROPL = [], FLASHA = 0, RNDW = rng(5);
@@ -714,10 +720,11 @@ function artFrame(sc, dt){
   if(!ARTREADY()) return;
   if(!ART.ok) prepArt();
   TT += dt;
-  const art = ARTKEY[sc], L = artLayout(art), A = L.A, ox = L.ox, oy = L.oy, st = artState(art);
+  const art = ARTKEY[sc]; if(art==='colinas_fantasia') hillsTick(dt);
+  const L = artLayout(art), A = L.A, ox = L.ox, oy = L.oy, st = artState(art);
   ART.orient = L.orient; ART.sig2 = '|'+PW+'x'+PH;
   if(art==='aurora'){ drawAuroraArt(A, st, ox, oy, dt); return; }
-  const sig = [PW,PH,L.key,Math.round(st.d*40),Math.round(st.gold*20),st.sea,WX.kind,st.seasonal?1:0].join('|');
+  const sig = [PW,PH,L.key,Math.round(st.d*40),Math.round(st.gold*20),Math.round(st.dusk*40),st.sea,WX.kind,st.seasonal?1:0].join('|');
   if(ART.key!==L.key || ART.size!==PW+'x'+PH){
     ART.key = L.key; ART.size = PW+'x'+PH; ART.sig = '';
     ART.cv = mk2(PW,PH); ART.ovS = mk2(PW,PH); ART.ovG = mk2(PW,PH);
@@ -742,6 +749,35 @@ function artFrame(sc, dt){
   px.drawImage(ART.ovG,0,0);
   if(typeof drawExtras==='function') drawExtras(px, art, A, st, ox, oy, dt);
   if(A.meta && (art==='janela'||art==='lofi'||art==='natal'||art==='noite'||art==='deserto_sci_fi'||art==='colinas_fantasia')) drawCatArt(px, art, A, st, ox, oy, dt);
+  if(art==='colinas_fantasia' && HILLS.c>0) drawHillsFog(px);
+}
+/* ----- Colinas: máquina de estados dos dois trechos (0 estável, 1 neblina subindo, 2 parado coberto, 3 neblina descendo) ----- */
+function hillsTick(dt){
+  const now = performance.now()/1000;
+  if(now-HILLS.last>2){ HILLS.t = 1; HILLS.ph = 0; HILLS.tm = 0; HILLS.c = 0; }   /* voltou à cena: recomeça no trecho 1 */
+  HILLS.last = now;
+  dt = Math.min(dt,.25); HILLS.tm += dt;
+  const H = HILLS;
+  if(H.ph===0){ H.c = 0; if(H.tm>=HT.stay){ H.ph = 1; H.tm = 0; } }
+  else if(H.ph===1){ H.c = Math.min(1,H.tm/HT.up); if(H.tm>=HT.up){ H.ph = 2; H.tm = 0; H.c = 1; H.t = H.t===1 ? 2 : 1; } }
+  else if(H.ph===2){ H.c = 1; if(H.tm>=HT.hold){ H.ph = 3; H.tm = 0; } }
+  else { H.c = Math.max(0,1-H.tm/HT.down); if(H.tm>=HT.down){ H.ph = 0; H.tm = 0; H.c = 0; } }
+}
+const BAYER = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+/* neblina por dithering (Bayer 4x4), sobe do chão ao céu, borda ondulada, sem suavização */
+function drawHillsFog(g){
+  const W = PW, H = PH, c = HILLS.c;
+  if(!HILLS.cv || HILLS.cv.width!==W || HILLS.cv.height!==H) HILLS.cv = mk2(W,H);
+  const cx = HILLS.cv.getContext('2d'), im = cx.createImageData(W,H), o = im.data, f1 = 1.2+TT*.25, f2 = 2.5+TT*.4;
+  const wv = new Float32Array(W); for(let x=0;x<W;x++) wv[x] = .12*Math.sin(x/9+f1)+.08*Math.sin(x/4+f2);
+  for(let y=0;y<H;y++){
+    const base = c*2.2-(1-y/H), by = BAYER[y&3];
+    for(let x=0;x<W;x++){
+      let lim = base+wv[x]; if(lim<=0) continue; if(lim>1) lim = 1;
+      if(by[x&3]/16<lim){ const j = (y*W+x)*4, t = (x*3+y*7)%5===0; o[j] = t?214:232; o[j+1] = t?222:236; o[j+2] = t?236:244; o[j+3] = 255; }
+    }
+  }
+  cx.putImageData(im,0,0); g.drawImage(HILLS.cv,0,0);
 }
 /* aurora: o PNG é só referência de cor e forma; as faixas ondulam deslocando as linhas */
 function drawAuroraArt(A, st, ox, oy, dt){
