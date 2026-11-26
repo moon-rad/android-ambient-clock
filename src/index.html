@@ -519,15 +519,9 @@ function sillBack(c,x,by,fur,fur2,t,tw,ear,squat){
 }
 /* gato espiando por cima do peitoril (pendurado): orelhas, olhos e patinhas */
 function peek(c,x,ys,t,slip,fur,fur2){
-  const F = (col,ox,oy,w,h) => fSK(c,x,ys,col,ox,oy,w,h);
-  const sink = Math.round(slip*7), bob = Math.round(Math.sin(t*9)*(1-slip)*1.2), w1 = Math.round(Math.sin(t*12)), eye = 'rgb(22,16,16)';
-  c.save(); c.beginPath(); c.rect(x-6,ys-Math.round(14*SK),Math.round(18*SK),Math.round(14*SK)); c.clip();             /* só o que está acima do peitoril: o gato está do lado de fora */
-  const hy = -6+sink+bob;
-  F(fur,1,hy,1,1); F(fur,6,hy,1,1); F(fur,1,hy+1,2,1); F(fur,5,hy+1,2,1);
-  F(fur,1,hy+2,6,3); F(fur2,3,hy+2,2,1);
-  if(slip<.3 && t>2.5){ F(fur2,2,hy+3,2,1); F(fur2,5,hy+3,1,1); } else { F(eye,2,hy+3,1,1); F(eye,5,hy+3,1,1); }
-  F(fur,3,hy+4,2,1);
-  F(fur,0,-2+sink+w1,2,2); F(fur,6,-2+sink-w1,2,2);                          /* patinhas agarradas na beirada (também recortadas) */
+  const sink = Math.round(slip*7), bob = Math.round(Math.sin(t*9)*(1-slip)*1.2), strain = slip<.3 && t>2.5;
+  c.save(); c.beginPath(); c.rect(x-10,ys-Math.round(14*SK),Math.round(26*SK),Math.round(14*SK)); c.clip();   /* só o que está acima do peitoril: o corpo fica escondido atrás dele */
+  drawSpr(c,strain?'peekc':'peek',x+Math.round(4*SK),ys+sink+bob,1,false,WCL);
   c.restore();
 }
 function windowCat(c,P,layer,nearY){
@@ -677,7 +671,9 @@ const CSPR = {
   sitB:["...O.....O.......", "..OFO...OFO......", "..OSFOOOFSO......", "..OFFFFFFFO......", ".OFFFSSSFFFO.....", ".OFFFFFFFFFO.....", ".OFFFSSSFFFO.....", ".OFFFFFFFFFO.....", ".OFFFFFFFFFO.....", "..OFFFFFFFO......", "..OFFSFSFFO......", "..OFFSFSFFO...OO.", "..OFFSFSFFO..OSSO", "..OFFSFSFFO..OFFO", ".OFFFFFFFFFO.OFFO", "OFSFSFFFSFSFOOSSO", "OFSFSFFFSFSFOOFFO", "OFSFSFFFSFSFOOFFO", "OFFFFFFFFFFFFFFFO", "OFCCCFFFCCCFFFFO.", ".OOOOOOOOOOOOOO.."],
   lie:[".O.....O............", "OSO...OSO...........", "OSSOOOSSO...........", "OSFFFFFSOOOOOOOOO...", "OFFCCFFFOSFSFFSFFO..", "OSEECEESOSFSFFSFFFO.", "OCCNCCCFOFFFFFFFFFFO", ".OCCCCCOFFFFFFFFFFFO", ".OCCCCCFFFFFFFFFFFFO", "..OOOOOOOOOOOOOOOOO."],
   play1:["..................OOO", "..................OSO", "..................OFO", "..................OSO", ".O.....O..........OFO", "OSO...OSO.........OSO", "OSSOOOSSOOOOOOOOOOFFO", "OSFFFFFSOFSFFSFSFFFO.", "OFFCCFFFOFSFFSFSFFOO.", "OSECCEFSOFFFFFFFFO...", "OCCNCCCFOFFFFFFFFO...", ".OCCCCCOFFFFFFFFFFO..", "OCCOOOOFFFFFFFFFFFFO.", ".OOO.OCCO...OCCO.....", ".....OOOO...OOOO....."],
-  play2:["..................OOO", "..................OSO", "..................OFO", "..................OSO", ".O.....O..........OFO", "OSO...OSO.........OSO", "OSSOOOSSOOOOOOOOOOFFO", "OSFFFFFSOFSFFSFSFFFO.", "OFFCCFFFOFSFFSFSFFOO.", "OSECCEFSOFFFFFFFFO...", "OCCNCCCFOFFFFFFFFO...", ".OCCCCCOFFFFFFFFFFO..", "OCCOOOOFFFFFFFFFFFFO.", "OOO..OCCO....OCCO....", ".....OOOO....OOOO...."]
+  play2:["..................OOO", "..................OSO", "..................OFO", "..................OSO", ".O.....O..........OFO", "OSO...OSO.........OSO", "OSSOOOSSOOOOOOOOOOFFO", "OSFFFFFSOFSFFSFSFFFO.", "OFFCCFFFOFSFFSFSFFOO.", "OSECCEFSOFFFFFFFFO...", "OCCNCCCFOFFFFFFFFO...", ".OCCCCCOFFFFFFFFFFO..", "OCCOOOOFFFFFFFFFFFFO.", "OOO..OCCO....OCCO....", ".....OOOO....OOOO...."],
+  peek:[".....O.....O....", "....OSO...OSO...", "....OSSOOOSSO...", "....OSFFFFFSO...", "....OFEFFFEFO...", "....OFFCCCFFO...", ".OCO.OFCNCFO.OCO", "OCCCOOOOOOOOOCCO"],
+  peekc:[".....O.....O....", "....OSO...OSO...", "....OSSOOOSSO...", "....OSFFFFFSO...", "....OFSFFFSFO...", "....OFFCCCFFO...", ".OCO.OFCNCFO.OCO", "OCCCOOOOOOOOOCCO"]
 };
 const CPALD = {O:[160,92,42],F:[214,140,70],S:[186,112,52],C:[238,210,170],E:[34,22,22],N:[236,140,150]};
 /* desenha um quadro do gato (matriz de pixels com contorno na cor das listras), centrado em cx, apoiado em by */
