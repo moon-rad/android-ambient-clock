@@ -472,38 +472,44 @@ function seasonCol(cls,r,g,b,S){
 }
 const NT = {m:[.32,.36,.52], a:[6,8,26]};   /* filtro da noite do LEIAME: escurece e puxa para o azul */
 /* monta o fundo da cena já no tamanho lógico da tela (estende céu/chão e centraliza; corta se faltar) */
+const _CO = [0,0,0];
+/* cor final de um pixel da arte (estação, noite, dourado, entardecer, cinza do clima); idx = índice do pixel na arte */
+function colorOf(A, st, idx, r, g, b){
+  const nt = st.night, gk = st.gk, fog = st.fog, S = st.sea, gm = st.gold, du = st.dusk||0, aw = A.W;
+  const N = A.noite ? A.noite.data : null, q = idx*4;
+  let dr = r, dg = g, db = b;
+  if(st.seasonal && A.cls[idx]){ const c = seasonCol(A.cls[idx], r, g, b, S); if(c){ dr = c[0]; dg = c[1]; db = c[2]; } }
+  let R, G, B;
+  if(N){
+    let nr = N[q], ng = N[q+1], nb = N[q+2];
+    if(dr!==r || dg!==g || db!==b){ nr = clamp(nr*(dr+8)/(r+8),0,255); ng = clamp(ng*(dg+8)/(g+8),0,255); nb = clamp(nb*(db+8)/(b+8),0,255); }
+    R = dr+(nr-dr)*nt; G = dg+(ng-dg)*nt; B = db+(nb-db)*nt;
+  } else if(st.tintNight){
+    R = dr*(1-nt*(1-NT.m[0]))+NT.a[0]*nt; G = dg*(1-nt*(1-NT.m[1]))+NT.a[1]*nt; B = db*(1-nt*(1-NT.m[2]))+NT.a[2]*nt;
+  } else { R = dr; G = dg; B = db; }
+  if(gm>0){ R *= 1-gm*.05; G *= 1-gm*.2; B *= 1-gm*.38; R += gm*14; }
+  if(du>0 && A.sky[idx]){ const DB = DUSKB[A.H>aw?'vertical':'horizontal'], ay = Math.floor(idx/aw); let bi = 0; while(bi<5 && ay>=DB[bi+1]) bi++; const dc = DUSKC[bi]; R = lerp(R,dc[0],du); G = lerp(G,dc[1],du); B = lerp(B,dc[2],du); }
+  if(gk>0 || fog>0){
+    const sk = A.sky[idx], gl = A.glass[idx];
+    if(sk || gl){
+      const l = .3*R+.59*G+.11*B;
+      if(sk && gk>0){ const f = Math.min(.96,gk*1.45), dk = 1-gk*.36*(1-nt*.5); R = lerp(R,l*.96,f)*dk; G = lerp(G,l*.99,f)*dk; B = lerp(B,l*1.05,f)*dk; }
+      else if(gl && gk>0){ const f = gk*.3, dk = 1-gk*.14; R = lerp(R,l,f)*dk; G = lerp(G,l,f)*dk; B = lerp(B,l,f)*dk; }
+      if(fog>0 && gl){ const hz = 215*(.3+.7*(1-nt)), f = fog*(sk?.7:.55); R = lerp(R,hz*.97,f); G = lerp(G,hz,f); B = lerp(B,hz*1.04,f); }
+    }
+  }
+  _CO[0] = R; _CO[1] = G; _CO[2] = B;
+  return _CO;
+}
 function composeBase(A, st, ox, oy){
   const aw = A.W, ah = A.H, W = PW, H = PH, out = new ImageData(W,H), o = out.data;
-  const D = (A.dia||A.x).data, N = A.noite ? A.noite.data : null;
-  const nt = st.night, gk = st.gk, fog = st.fog, S = st.sea, seasonal = st.seasonal;
-  const gm = st.gold, du = st.dusk||0, DB = DUSKB[ah>aw?'vertical':'horizontal'];
+  const D = (A.dia||A.x).data;
   for(let y=0;y<H;y++){
     const ay = Math.min(ah-1, Math.max(0, y-oy));
     for(let x=0;x<W;x++){
       const ax = Math.min(aw-1, Math.max(0, x-ox)), p = ay*aw+ax, q = p*4, j = (y*W+x)*4;
-      const r = D[q], g = D[q+1], b = D[q+2];
-      let dr = r, dg = g, db = b;
-      if(seasonal && A.cls[p]){ const c = seasonCol(A.cls[p], r, g, b, S); if(c){ dr = c[0]; dg = c[1]; db = c[2]; } }
-      let R, G, B;
-      if(N){
-        let nr = N[q], ng = N[q+1], nb = N[q+2];
-        if(dr!==r || dg!==g || db!==b){ nr = clamp(nr*(dr+8)/(r+8),0,255); ng = clamp(ng*(dg+8)/(g+8),0,255); nb = clamp(nb*(db+8)/(b+8),0,255); }
-        R = dr+(nr-dr)*nt; G = dg+(ng-dg)*nt; B = db+(nb-db)*nt;
-      } else if(st.tintNight){
-        R = dr*(1-nt*(1-NT.m[0]))+NT.a[0]*nt; G = dg*(1-nt*(1-NT.m[1]))+NT.a[1]*nt; B = db*(1-nt*(1-NT.m[2]))+NT.a[2]*nt;
-      } else { R = dr; G = dg; B = db; }
-      if(gm>0){ R *= 1-gm*.05; G *= 1-gm*.2; B *= 1-gm*.38; R += gm*14; }
-      if(du>0 && A.sky[p]){ let bi = 0; while(bi<5 && ay>=DB[bi+1]) bi++; const dc = DUSKC[bi]; R = lerp(R,dc[0],du); G = lerp(G,dc[1],du); B = lerp(B,dc[2],du); }
-      if(gk>0 || fog>0){
-        const sk = A.sky[p], gl = A.glass[p];
-        if(sk || gl){
-          const l = .3*R+.59*G+.11*B;
-          if(sk && gk>0){ const f = Math.min(.96,gk*1.45), dk = 1-gk*.36*(1-nt*.5); R = lerp(R,l*.96,f)*dk; G = lerp(G,l*.99,f)*dk; B = lerp(B,l*1.05,f)*dk; }
-          else if(gl && gk>0){ const f = gk*.3, dk = 1-gk*.14; R = lerp(R,l,f)*dk; G = lerp(G,l,f)*dk; B = lerp(B,l,f)*dk; }
-          if(fog>0 && gl){ const hz = 215*(.3+.7*(1-nt)), f = fog*(sk?.7:.55); R = lerp(R,hz*.97,f); G = lerp(G,hz,f); B = lerp(B,hz*1.04,f); }
-        }
-      }
-      o[j] = R; o[j+1] = G; o[j+2] = B; o[j+3] = 255;
+      const C = colorOf(A, st, p, D[q], D[q+1], D[q+2]);
+      o[j] = C[0]; o[j+1] = C[1]; o[j+2] = C[2]; o[j+3] = 255;
     }
   }
   return out;
@@ -803,13 +809,14 @@ const hsh = i => { const v = Math.sin(i*12.9898)*43758.5453; return v-Math.floor
 function pxl(c,x,y,col,a){ c.globalAlpha = a==null ? 1 : a; c.fillStyle = col; c.fillRect(x|0,y|0,1,1); c.globalAlpha = 1; }
 function glowAt(c,x,y,r,col,a){ c.fillStyle = col; for(let k=r;k>=1;k--){ c.globalAlpha = a*(1-k/(r+1)); disc(c,Math.round(x),Math.round(y),k); } c.globalAlpha = 1; }
 function smokeAt(c,x,y,col,n,spd,a){ for(let k=0;k<n;k++){ const u = ((TT*spd+k/n)%1), yy = y-u*14, xx = x+Math.round(Math.sin(TT*.9+k*2+u*3)*(1+u*2)); pxl(c,xx,yy,col,a*(1-u)); if(u<.6) pxl(c,xx+1,yy,col,a*(1-u)*.6); } }
-function breathe(c,reg,ox,oy,per){
+function breathe(c,reg,ox,oy,per,A,st){
   const ph = (TT/per)%1; if(ph>.45) return;
+  const col = (x,y,r,g,b) => { const C = colorOf(A,st,y*A.W+x,r,g,b); return 'rgb('+(C[0]|0)+','+(C[1]|0)+','+(C[2]|0)+')'; };
   for(const r of reg){
     const P = r.px, ym = r.ymid;
-    for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]<ym) pxl(c,p[0]+ox,p[1]+oy,'rgb('+p[5]+','+p[6]+','+p[7]+')'); }
-    for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]<ym) pxl(c,p[0]+ox,p[1]+oy+r.dy,'rgb('+p[2]+','+p[3]+','+p[4]+')'); }
-    for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]===ym-1) pxl(c,p[0]+ox,p[1]+oy,'rgb('+p[2]+','+p[3]+','+p[4]+')'); }
+    for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]<ym) pxl(c,p[0]+ox,p[1]+oy,col(p[0],p[1],p[5],p[6],p[7])); }
+    for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]<ym) pxl(c,p[0]+ox,p[1]+oy+r.dy,col(p[0],p[1],p[2],p[3],p[4])); }
+    for(let i=0;i<P.length;i++){ const p = P[i]; if(p[1]===ym-1) pxl(c,p[0]+ox,p[1]+oy,col(p[0],p[1],p[2],p[3],p[4])); }
   }
 }
 function drawExtras(c, art, A, st, ox, oy, dt){
@@ -871,14 +878,14 @@ function drawExtras(c, art, A, st, ox, oy, dt){
   else if(art==='deserto_sci_fi'){
     if(e.suns){ const a = .12+.08*Math.sin(tw*1.1), cols = ['#fff0b4','#ffbe78']; e.suns.forEach((s,i)=>{ if(s&&s[2]!=null) glowAt(c,s[0]+ox,s[1]+oy,Math.round(s[2])+3,cols[i],a*(1-.5*n)); }); }
     if(e.ant) pxl(c,e.ant[0]+ox,e.ant[1]+oy,Math.floor(tw*1.2)%2?'#ff4040':'#6a1818');
-    if(e.reg) breathe(c,e.reg,ox,oy,3.2);
+    if(e.reg) breathe(c,e.reg,ox,oy,3.2,A,st);
     if(e.dust) dustAt(c,e.dust,ox,oy,'#e6c88c',A.W);
   }
   else if(art==='colinas_fantasia'){
     if(e.chim){ const cc = e.chimC||[200,200,200]; smokeAt(c,e.chim[0]+ox,e.chim[1]+oy-1,'#e4dcd4',4,.16,.7); }
     if(e.win) glowAt(c,e.win[0]+ox,e.win[1]+oy,4,'#ffd070',(.14+.08*Math.sin(tw*1.4))*(.35+.65*n));
     if(e.tip) glowAt(c,e.tip[0]+ox,e.tip[1]+oy,3,'#9ee6ff',.22+.16*Math.sin(tw*2.4));
-    if(e.reg) breathe(c,e.reg,ox,oy,3.6);
+    if(e.reg) breathe(c,e.reg,ox,oy,3.6,A,st);
     if(e.sway) for(const r of e.sway){ const w = r[2]-r[0]+1; for(let y=r[1];y<=r[3];y++){ const d = Math.round(Math.sin(tw*1.4+y*.45)*.55*(1-(y-r[1])/(r[3]-r[1]+1))); if(d) c.drawImage(c.canvas,r[0]+ox,y+oy,w,1,r[0]+ox+d,y+oy,w,1); } }
     if(e.dust) dustAt(c,e.dust,ox,oy,'#d8e0c0',A.W);
   }
