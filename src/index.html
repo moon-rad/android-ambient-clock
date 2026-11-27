@@ -34,7 +34,7 @@ body[data-scene=night] #batt{color:#ff9d57;opacity:.35;text-shadow:none}
 #clock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.5),0 0 20px rgba(0,0,0,.5);transition:transform 3s ease}
 #time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,.8));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 #date{font-size:13px;font-weight:300;opacity:.85;margin-top:.6em}
-#wx{font-size:min(4vw,5.8vh);font-weight:300;margin-top:.7em;padding:.2em .85em;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,.28);opacity:.8;white-space:nowrap}
+#wx{font-size:min(2.9vw,4.2vh);font-weight:300;margin-top:.7em;padding:.2em .85em;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,.28);opacity:.8;white-space:nowrap}
 #wx small{opacity:.6;font-size:.7em;margin-left:.5em}
 body[data-scene=night] #time{color:#ff9d57;opacity:.55;text-shadow:none}
 body[data-scene=night] #date{color:#ff9d57;opacity:.4}
@@ -974,14 +974,36 @@ function drawAurora(dt){
   }
 }
 
-/* ---------- Cena: Fluxo (traços lisos num campo de fluxo com vórtices, estilo "Drift") ---------- */
+/* ---------- Cena: Fluxo (traços lisos num campo de fluxo, estilo "Drift", com balanço de coral) ---------- */
 const cvFx = $('cvFlux'), fx = cvFx.getContext('2d');
-let FXD = 1, FXS = [], FXT = Math.random()*1000, FXMIN = 400;
+let FXD = 1, FXS = [], FXT = Math.random()*1000, FXMIN = 400, FXSPR = null, FXGK = -1;
 const FXPAL = [[150,55,235],[70,60,250],[35,120,255],[70,215,200],[150,255,205],[70,200,215],[115,70,240],[240,70,170],[255,125,170],[185,70,225]];   /* roxo, azul, verde-água, rosa… (cíclica) */
 function fxPal(q, gk){   /* q 0..1 → cor, esmaecida em direção ao cinza conforme o clima */
   const n = FXPAL.length, f = ((q%1)+1)%1*n, i = f|0, u = f-i, A = FXPAL[i%n], B = FXPAL[(i+1)%n];
   const k = u*u*(3-2*u);
   return [0,1,2].map(j => (A[j]+(B[j]-A[j])*k)*(1-gk) + 150*gk);
+}
+/* um traço = degradê contínuo: cauda transparente e fina → corpo na cor → cabeça mais clara e grossa */
+function fxSprites(gk){
+  const SW = 128, SH = 16, out = [];
+  for(let ci=0;ci<10;ci++){
+    const cv = document.createElement('canvas'); cv.width = SW; cv.height = SH;
+    const c = cv.getContext('2d'), col = fxPal(ci/10+.05, gk);
+    const hi = col.map(v => Math.min(255, v+35)|0), lo = col.map(v => v|0);
+    const g = c.createLinearGradient(0,0,SW,0);
+    g.addColorStop(0, `rgba(${lo[0]},${lo[1]},${lo[2]},0)`);
+    g.addColorStop(.45, `rgba(${lo[0]},${lo[1]},${lo[2]},.55)`);
+    g.addColorStop(1, `rgba(${hi[0]},${hi[1]},${hi[2]},1)`);
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(0, SH/2-1.2);                                  /* cauda fina */
+    c.lineTo(SW-SH/2, SH/2-SH*.36);                         /* engrossa até a cabeça */
+    c.arc(SW-SH/2, SH/2, SH*.36, -Math.PI/2, Math.PI/2);    /* cabeça arredondada */
+    c.lineTo(0, SH/2+1.2);
+    c.closePath(); c.fill();
+    out.push(cv);
+  }
+  return out;
 }
 function sizeFlux(){
   FXD = Math.min(devicePixelRatio||1, 1.25);
@@ -990,49 +1012,45 @@ function sizeFlux(){
   const sp = FXMIN*.021, cols = Math.ceil(w/sp)+2, rows = Math.ceil(h/sp)+2;
   FXS = [];
   for(let r=-1;r<rows;r++) for(let c=-1;c<cols;c++){
-    FXS.push({x:(c+(r&1?.5:0)+(Math.random()-.5)*.8)*sp, y:(r+(Math.random()-.5)*.8)*sp, j:(Math.random()-.5)*.35, l:.75+Math.random()*.5});
+    FXS.push({x:(c+(r&1?.5:0)+(Math.random()-.5)*.8)*sp, y:(r+(Math.random()-.5)*.8)*sp, j:(Math.random()-.5)*.5, l:.75+Math.random()*.5, a:null, w:0, f:.8+Math.random()*.5, ph:Math.random()*6.283});
   }
   fx.fillStyle='#000'; fx.fillRect(0,0,w,h);
 }
-const FXNL = 3, FXST = [0,.4,.75], FXLA = [.24,.38,.58];   /* camadas sobrepostas: a cabeça acumula mais luz que a cauda */
-const FXB = Array.from({length:FXNL*10*4},()=>[]);   /* camadas × cores × brilhos: um traçado por balde */
 function drawFlux(dt){
   FXT += dt;
   const t = FXT, w = cvFx.width, h = cvFx.height, m = FXMIN;
-  fx.fillStyle = '#000'; fx.fillRect(0,0,w,h);
-  const gk = KINDS[WX.kind].g*.55;
-  /* dois vórtices que orbitam devagar + ondulação suave */
-  const c1x = w*(.5+.34*Math.cos(t*.045)), c1y = h*(.5+.30*Math.sin(t*.052));
-  const c2x = w*(.5+.38*Math.cos(t*.037+2.4)), c2y = h*(.5+.34*Math.sin(t*.041+1.1));
-  const k = 1/m;
-  for(const b of FXB) b.length = 0;
-  for(const p of FXS){
+  const gk = Math.round(KINDS[WX.kind].g*.55*20)/20;
+  if(!FXSPR || gk!==FXGK){ FXSPR = fxSprites(gk); FXGK = gk; }
+  fx.setTransform(1,0,0,1,0,0); fx.globalAlpha = 1; fx.fillStyle = '#000'; fx.fillRect(0,0,w,h);
+  /* dois vórtices que orbitam devagar */
+  const c1x = w*(.5+.34*Math.cos(t*.06)), c1y = h*(.5+.30*Math.sin(t*.07));
+  const c2x = w*(.5+.38*Math.cos(t*.05+2.4)), c2y = h*(.5+.34*Math.sin(t*.055+1.1));
+  const k = 1/m, kd = Math.min(dt,.08);
+    for(const p of FXS){
     const x = p.x*k, y = p.y*k;
-    const a = Math.atan2(p.y-c1y,p.x-c1x)*.9 + Math.atan2(p.y-c2y,p.x-c2x)*.7 + 1.25*Math.sin(x*5.2+t*.07) + 1.1*Math.cos(y*5.6-t*.06) + 1.5 + p.j;
-    const n = (Math.sin(x*6.5-t*.05+1)+Math.cos(y*7.2+t*.04)+Math.sin((x-y)*4.4+t*.03))/3;   /* -1..1: mancha de brilho */
+    /* correnteza deformada: o campo é "empurrado" por ondas lentas, o que dá o aspecto de água */
+    const wx = x + .07*Math.sin(y*6.5+t*.31) + .04*Math.cos(x*9-t*.23), wy = y + .07*Math.cos(x*5.5-t*.27) + .04*Math.sin(y*8+t*.19);
+    let tg = Math.atan2(p.y-c1y,p.x-c1x)*.9 + Math.atan2(p.y-c2y,p.x-c2x)*.7 + 1.3*Math.sin(wx*5.2+t*.11) + 1.1*Math.cos(wy*5.6-t*.09) + 1.5 + p.j;
+    /* ondas que viajam pelo campo: cada filamento balança como um tentáculo na correnteza */
+    tg += .2*Math.sin(wx*7 + wy*4 - t*.8*p.f + p.ph*.15) + .07*Math.sin(wy*11 - wx*4 + t*1.1 + p.ph);
+    /* mola amortecida: o traço segue o fluxo com atraso e um leve vai-e-vem */
+    if(p.a===null) p.a = tg;
+    let d = tg - p.a; d = Math.atan2(Math.sin(d), Math.cos(d));
+    p.w += (d*5*p.f - p.w*3.2)*kd; p.a += p.w*kd;
+    const a = p.a;
+    const n = (Math.sin(wx*6.5-t*.07+1)+Math.cos(wy*7.2+t*.06)+Math.sin((wx-wy)*4.4+t*.045))/3;   /* -1..1: mancha de brilho */
     let v = (n+.15)/.8; v = v<0 ? 0 : v>1 ? 1 : v; v = v*v*(3-2*v);
     if(v<.04) continue;
-    const q = (Math.sin(x*2.4+t*.03)+Math.cos(y*2.9-t*.025)+Math.sin((x+y)*1.7+t*.02))/3.4+.5;
-    const ci = ((((q%1)+1)%1)*10)|0, vl = Math.min(3,(v*4)|0);
-    const L = m*(.03+.075*v)*p.l, dx = Math.cos(a)*L, dy = Math.sin(a)*L;
-    const x1 = p.x+dx, y1 = p.y+dy;
-    const base = ci*4+vl;
-    for(let l=0;l<FXNL;l++) FXB[l*40+base].push(p.x+dx*FXST[l], p.y+dy*FXST[l], x1, y1);
+    const q = (Math.sin(x*2.4+t*.04)+Math.cos(y*2.9-t*.033)+Math.sin((x+y)*1.7+t*.027))/3.4+.5;
+    const ci = ((((q%1)+1)%1)*10)|0;
+    const breath = 1 + .16*Math.sin(t*.8*p.f + p.ph);   /* o comprimento respira */
+    const L = m*(.03+.075*v)*p.l*breath, th = Math.max(2.2*FXD, m*.0095);
+    const ca = Math.cos(a), sa = Math.sin(a);
+    fx.setTransform(ca, sa, -sa, ca, p.x, p.y);
+    fx.globalAlpha = .4 + .6*v;
+    fx.drawImage(FXSPR[ci], 0, -th/2, L, th);
   }
-  fx.lineCap = 'round';
-  fx.lineWidth = Math.max(1.4*FXD, m*.0048);
-  for(let L=0;L<FXNL;L++) for(let ci=0;ci<10;ci++){
-    const col = fxPal(ci/10+.05, gk);
-    for(let vl=0;vl<4;vl++){
-      const arr = FXB[L*40+ci*4+vl]; if(!arr.length) continue;
-      const al = FXLA[L]*(.3+.7*(vl+1)/4);
-      const bright = L===FXNL-1 ? 30 : 0;
-      fx.strokeStyle = `rgba(${Math.min(255,col[0]+bright)|0},${Math.min(255,col[1]+bright)|0},${Math.min(255,col[2]+bright)|0},${al.toFixed(2)})`;
-      fx.beginPath();
-      for(let i=0;i<arr.length;i+=4){ fx.moveTo(arr[i],arr[i+1]); fx.lineTo(arr[i+2],arr[i+3]); }
-      fx.stroke();
-    }
-  }
+  fx.setTransform(1,0,0,1,0,0); fx.globalAlpha = 1;
 }
 
 /* ---------- Cena: Noturno (céu estrelado dinâmico) ---------- */
