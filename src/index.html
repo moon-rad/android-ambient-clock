@@ -1039,8 +1039,8 @@ function drawFlux(dt){
     p.w += (d*5*p.f - p.w*3.2)*kd; p.a += p.w*kd;
     const a = p.a;
     const n = (Math.sin(wx*6.5-t*.07+1)+Math.cos(wy*7.2+t*.06)+Math.sin((wx-wy)*4.4+t*.045))/3;   /* -1..1: mancha de brilho */
-    let v = (n+.15)/.8; v = v<0 ? 0 : v>1 ? 1 : v; v = v*v*(3-2*v);
-    if(v<.04) continue;
+    let v = (n+.62)/.95; v = v<0 ? 0 : v>1 ? 1 : v; v = v*v*(3-2*v);
+    if(v<.015) continue;
     const q = (Math.sin(x*2.4+t*.04)+Math.cos(y*2.9-t*.033)+Math.sin((x+y)*1.7+t*.027))/3.4+.5;
     const ci = ((((q%1)+1)%1)*10)|0;
     const breath = 1 + .16*Math.sin(t*.8*p.f + p.ph);   /* o comprimento respira */
