@@ -221,7 +221,7 @@ function codeKind(c){
 async function loadWeather(){
   try{
     const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 5000);
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CFG.lat}&longitude=${CFG.lon}&current=temperature_2m,weather_code&hourly=precipitation_probability&forecast_days=2&timezone=GMT`, {signal: ctl.signal});
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CFG.lat}&longitude=${CFG.lon}&current=temperature_2m,weather_code,precipitation,cloud_cover&hourly=precipitation_probability&forecast_days=2&timezone=GMT`, {signal: ctl.signal});
     clearTimeout(to);
     if(!r.ok) throw new Error('http');
     const j = await r.json();
@@ -230,9 +230,12 @@ async function loadWeather(){
       const dh = (new Date(j.hourly.time[i]+'Z') - now)/36e5;   /* horários em GMT: certo para qualquer cidade */
       if(dh>-1 && dh<=4 && j.hourly.precipitation_probability[i]>=60){ rainIn = Math.max(0,Math.round(dh)); break; }
     }
-    WX = {kind: codeKind(j.current.weather_code), temp: Math.round(j.current.temperature_2m), live:true, rainIn};
+    const cc = j.current, pr = cc.precipitation;
+    let kd = codeKind(cc.weather_code);
+    if(kd==='rain' && typeof pr==='number' && pr<=0) kd = (cc.cloud_cover>=70 ? 'cloudy' : 'partly');   /* o código diz chuva mas não está chovendo agora */
+    WX = {kind: kd, temp: Math.round(cc.temperature_2m), live:true, rainIn, dbg:'cód '+cc.weather_code+' · '+(pr==null?'?':pr)+' mm · nuvens '+(cc.cloud_cover==null?'?':cc.cloud_cover)+'%'};
   }catch(e){
-    if(WX.live){ WX.live = false; }
+    WX.err = String(e && e.message || e); if(WX.live){ WX.live = false; }
   }
   updateWx();
 }
@@ -241,7 +244,7 @@ function updateWx(){
   let s = `${k.e} ${WX.temp}° · ${tr('wx_'+WX.kind)}`;
   if(WX.live && WX.rainIn!==null && WX.kind!=='rain' && WX.kind!=='storm') s += WX.rainIn===0 ? ' · '+tr('rainSoon') : ' · '+tr('rainIn')(WX.rainIn);
   $('wx').innerHTML = s + (WX.live ? '' : '<small>'+tr('demo')+'</small>');
-  $('wxMode').textContent = WX.live ? '('+tr('live')+' · '+cityName()+')' : '('+tr('demoMode')+')';
+  $('wxMode').textContent = WX.live ? '('+tr('live')+' · '+cityName()+(WX.dbg?' · '+WX.dbg:'')+')' : '('+tr('demoMode')+(WX.err?' · '+WX.err:'')+')';
   document.querySelectorAll('#rowWx .chip').forEach(b => { b.classList.toggle('sel', b.dataset.k===WX.kind); b.disabled = WX.live; });
 }
 
