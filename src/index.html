@@ -29,7 +29,7 @@ canvas{position:absolute;left:0;top:0;display:block}
 #battFill{position:absolute;left:1px;top:1px;bottom:1px;width:50%;background:currentColor;border-radius:1px}
 body[data-scene=night] #batt{color:#ff9d57;opacity:.35;text-shadow:none}
 #cvPixel{image-rendering:pixelated}
-#cvAurora,#cvNight{width:100%;height:100%}
+#cvAurora,#cvNight,#cvFlux{width:100%;height:100%}
 #cvAurora{filter:contrast(1.12)}   /* esmaga o cinza residual do rastro: o fundo fica 100% preto */
 #clock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.5),0 0 20px rgba(0,0,0,.5);transition:transform 3s ease}
 #time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,.8));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
@@ -78,6 +78,7 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
   <canvas id="cvPixel"></canvas>
   <canvas id="cvAurora"></canvas>
   <canvas id="cvNight"></canvas>
+  <canvas id="cvFlux"></canvas>
   <div id="clock">
     <div id="time"><span id="hh">00</span><span id="col">:</span><span id="mm">00</span></div>
     <div id="date"></div>
@@ -150,7 +151,7 @@ const T = {
     gpsDenied:'Permissão negada. Libere a localização nas permissões do app e tente de novo.', gpsFail:'Não consegui obter a localização.',
     noCity:'Nenhuma cidade encontrada. Confira o país e o nome.', searching:'Buscando…', offline:'Sem internet para buscar cidades agora.', picked:'Pronto: agora mostrando ',
     language:'Idioma', coffeeBtn:'☕ Me pague um café', coffeeTxt:'Gostou do relógio? Se quiser ajudar, um café via Pix é bem-vindo (ou pelo GitHub Sponsors, de qualquer país). Obrigado!', pixCopy:'Copiar chave Pix', updBtn:'🔄 Verificar atualização', updChecking:'Verificando…', updNone:'Você já está na versão mais recente ✓', updFound:'Atualização encontrada! Reiniciando…', updFail:'Não consegui verificar. Confira a internet.', updNative:'Disponível só no app instalado.', copied:'Copiado! ✓', copyFail:'Não deu; segure o texto e copie', pixNote:'Chave aleatória · Moonrad',
-    sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Noturno', sc_desert:'Deserto', sc_sala:'Sala de Natal', sc_vila:'Vila nevada',
+    sc_window:'Janela', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_fluxo:'Fluxo', sc_night:'Noturno', sc_desert:'Deserto', sc_sala:'Sala de Natal', sc_vila:'Vila nevada',
     wx_clear:'Céu limpo', wx_partly:'Parcialmente nublado', wx_cloudy:'Nublado', wx_fog:'Neblina', wx_rain:'Chuva', wx_storm:'Tempestade', wx_snow:'Neve',
     rainSoon:'chuva chegando', rainIn:h=>`chuva em ~${h}h`, dateLoc:'pt-BR', geoLang:'pt',
     xmas:'Natal 🎄', xmas_auto:'Auto (1 dez – 6 jan)', xmas_on:'Ligado', xmas_off:'Desligado',
@@ -163,7 +164,7 @@ const T = {
     gpsDenied:'Permission denied. Allow location in the app permissions and try again.', gpsFail:'Could not get the location.',
     noCity:'No city found. Check the country and the name.', searching:'Searching…', offline:'No internet to search cities right now.', picked:'Done: now showing ',
     language:'Language', coffeeBtn:'☕ Buy me a coffee', coffeeTxt:'Enjoying the clock? If you want to help, you can sponsor on GitHub (any country) or send a coffee via Pix (Brazil). Thank you!', pixCopy:'Copy Pix key', updBtn:'🔄 Check for updates', updChecking:'Checking…', updNone:'You are on the latest version ✓', updFound:'Update found! Restarting…', updFail:'Could not check. Please check your internet.', updNative:'Only available in the installed app.', copied:'Copied! ✓', copyFail:"Couldn't copy; hold the text and copy it", pixNote:'Random key · Moonrad',
-    sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_night:'Night', sc_desert:'Desert', sc_sala:'Christmas room', sc_vila:'Snowy village',
+    sc_window:'Window', sc_lofi:'Lo-fi', sc_aurora:'Aurora', sc_fluxo:'Flow', sc_night:'Night', sc_desert:'Desert', sc_sala:'Christmas room', sc_vila:'Snowy village',
     wx_clear:'Clear sky', wx_partly:'Partly cloudy', wx_cloudy:'Cloudy', wx_fog:'Fog', wx_rain:'Rain', wx_storm:'Thunderstorm', wx_snow:'Snow',
     rainSoon:'rain arriving', rainIn:h=>`rain in ~${h}h`, dateLoc:'en-US', geoLang:'en',
     xmas:'Christmas 🎄', xmas_auto:'Auto (Dec 1 – Jan 6)', xmas_on:'On', xmas_off:'Off',
@@ -175,7 +176,7 @@ function resolveLang(){ LANG = (LANGPREF==='pt'||LANGPREF==='en') ? LANGPREF : (
 resolveLang();
 const tr = k => T[LANG][k];
 let luxKey = 'lux_def';
-const SCENES = [['window'],['lofi'],['aurora'],['night'],['desert'],['sala'],['vila']];   /* sala e vila: só no modo Natal */
+const SCENES = [['window'],['lofi'],['aurora'],['fluxo'],['night'],['desert'],['sala'],['vila']];   /* sala e vila: só no modo Natal */
 const sceneName = k => tr('sc_'+k);
 
 /* ---------- Utilidades ---------- */
@@ -973,6 +974,67 @@ function drawAurora(dt){
   }
 }
 
+/* ---------- Cena: Fluxo (traços lisos num campo de fluxo com vórtices, estilo "Drift") ---------- */
+const cvFx = $('cvFlux'), fx = cvFx.getContext('2d');
+let FXD = 1, FXS = [], FXT = Math.random()*1000, FXMIN = 400;
+const FXPAL = [[150,55,235],[70,60,250],[35,120,255],[70,215,200],[150,255,205],[70,200,215],[115,70,240],[240,70,170],[255,125,170],[185,70,225]];   /* roxo, azul, verde-água, rosa… (cíclica) */
+function fxPal(q, gk){   /* q 0..1 → cor, esmaecida em direção ao cinza conforme o clima */
+  const n = FXPAL.length, f = ((q%1)+1)%1*n, i = f|0, u = f-i, A = FXPAL[i%n], B = FXPAL[(i+1)%n];
+  const k = u*u*(3-2*u);
+  return [0,1,2].map(j => (A[j]+(B[j]-A[j])*k)*(1-gk) + 150*gk);
+}
+function sizeFlux(){
+  FXD = Math.min(devicePixelRatio||1, 1.25);
+  cvFx.width = Math.round(innerWidth*FXD); cvFx.height = Math.round(innerHeight*FXD);
+  const w = cvFx.width, h = cvFx.height; FXMIN = Math.min(w,h);
+  const sp = FXMIN*.021, cols = Math.ceil(w/sp)+2, rows = Math.ceil(h/sp)+2;
+  FXS = [];
+  for(let r=-1;r<rows;r++) for(let c=-1;c<cols;c++){
+    FXS.push({x:(c+(r&1?.5:0)+(Math.random()-.5)*.8)*sp, y:(r+(Math.random()-.5)*.8)*sp, j:(Math.random()-.5)*.35, l:.75+Math.random()*.5});
+  }
+  fx.fillStyle='#000'; fx.fillRect(0,0,w,h);
+}
+const FXNL = 3, FXST = [0,.4,.75], FXLA = [.24,.38,.58];   /* camadas sobrepostas: a cabeça acumula mais luz que a cauda */
+const FXB = Array.from({length:FXNL*10*4},()=>[]);   /* camadas × cores × brilhos: um traçado por balde */
+function drawFlux(dt){
+  FXT += dt;
+  const t = FXT, w = cvFx.width, h = cvFx.height, m = FXMIN;
+  fx.fillStyle = '#000'; fx.fillRect(0,0,w,h);
+  const gk = KINDS[WX.kind].g*.55;
+  /* dois vórtices que orbitam devagar + ondulação suave */
+  const c1x = w*(.5+.34*Math.cos(t*.045)), c1y = h*(.5+.30*Math.sin(t*.052));
+  const c2x = w*(.5+.38*Math.cos(t*.037+2.4)), c2y = h*(.5+.34*Math.sin(t*.041+1.1));
+  const k = 1/m;
+  for(const b of FXB) b.length = 0;
+  for(const p of FXS){
+    const x = p.x*k, y = p.y*k;
+    const a = Math.atan2(p.y-c1y,p.x-c1x)*.9 + Math.atan2(p.y-c2y,p.x-c2x)*.7 + 1.25*Math.sin(x*5.2+t*.07) + 1.1*Math.cos(y*5.6-t*.06) + 1.5 + p.j;
+    const n = (Math.sin(x*6.5-t*.05+1)+Math.cos(y*7.2+t*.04)+Math.sin((x-y)*4.4+t*.03))/3;   /* -1..1: mancha de brilho */
+    let v = (n+.15)/.8; v = v<0 ? 0 : v>1 ? 1 : v; v = v*v*(3-2*v);
+    if(v<.04) continue;
+    const q = (Math.sin(x*2.4+t*.03)+Math.cos(y*2.9-t*.025)+Math.sin((x+y)*1.7+t*.02))/3.4+.5;
+    const ci = ((((q%1)+1)%1)*10)|0, vl = Math.min(3,(v*4)|0);
+    const L = m*(.03+.075*v)*p.l, dx = Math.cos(a)*L, dy = Math.sin(a)*L;
+    const x1 = p.x+dx, y1 = p.y+dy;
+    const base = ci*4+vl;
+    for(let l=0;l<FXNL;l++) FXB[l*40+base].push(p.x+dx*FXST[l], p.y+dy*FXST[l], x1, y1);
+  }
+  fx.lineCap = 'round';
+  fx.lineWidth = Math.max(1.4*FXD, m*.0048);
+  for(let L=0;L<FXNL;L++) for(let ci=0;ci<10;ci++){
+    const col = fxPal(ci/10+.05, gk);
+    for(let vl=0;vl<4;vl++){
+      const arr = FXB[L*40+ci*4+vl]; if(!arr.length) continue;
+      const al = FXLA[L]*(.3+.7*(vl+1)/4);
+      const bright = L===FXNL-1 ? 30 : 0;
+      fx.strokeStyle = `rgba(${Math.min(255,col[0]+bright)|0},${Math.min(255,col[1]+bright)|0},${Math.min(255,col[2]+bright)|0},${al.toFixed(2)})`;
+      fx.beginPath();
+      for(let i=0;i<arr.length;i+=4){ fx.moveTo(arr[i],arr[i+1]); fx.lineTo(arr[i+2],arr[i+3]); }
+      fx.stroke();
+    }
+  }
+}
+
 /* ---------- Cena: Noturno (céu estrelado dinâmico) ---------- */
 const cvNight = $('cvNight'), nc = cvNight.getContext('2d');
 let NDPR = 1, NSTARS = [], NITT = 0, SHOOT = null, nextShoot = 12, NEB = null, NEBR = 0;
@@ -1085,7 +1147,8 @@ function showHint(t){ const h=$('hint'); h.textContent=t; h.classList.add('on');
 function showGear(){ $('gear').classList.add('on'); clearTimeout(gearTimer); gearTimer=setTimeout(()=>$('gear').classList.remove('on'),4000); }
 function setScene(s, announce){
   scene = s; document.body.dataset.scene = s;
-  $('cvPixel').style.display = (s==='aurora'||s==='night') ? 'none' : 'block';
+  $('cvPixel').style.display = (s==='aurora'||s==='night'||s==='fluxo') ? 'none' : 'block';
+  $('cvFlux').style.display = s==='fluxo' ? 'block' : 'none';
   $('cvAurora').style.display = s==='aurora' ? 'block' : 'none';
   $('cvNight').style.display = s==='night' ? 'block' : 'none';
   if(s==='aurora'){ au.fillStyle='#000'; au.fillRect(0,0,cvAu.width,cvAu.height); }
@@ -1212,18 +1275,19 @@ $('stage').addEventListener('click', e => {
 setInterval(()=>{ const t = `translate(${Math.round((Math.random()-.5)*16)}px,${Math.round((Math.random()-.5)*16)}px)`; $('clock').style.transform = t; $('batt').style.transform = t; }, 60000);
 
 /* ---------- Loop ---------- */
-let last = performance.now(), accP = 0, accA = 0, accN = 0, accC = 0;
-const SCENEFPS = {window:12, lofi:12, sala:12, vila:12, desert:12, night:24, aurora:30};
+let last = performance.now(), accP = 0, accA = 0, accN = 0, accC = 0, accF = 0;
+const SCENEFPS = {window:12, lofi:12, sala:12, vila:12, desert:12, night:24, aurora:30, fluxo:24};
 function frame(ts){
   const dt = Math.min(.1,(ts-last)/1000); last = ts;
   accC += dt; if(accC>=.5){ accC=0; tickClock(); }
   if(XSCENES.includes(scene) && !xmasOn()) setScene('window',false);
   if(scene==='aurora'){ accA += dt; if(accA>=1/30){ drawAurora(accA); accA=0; } }
+  else if(scene==='fluxo'){ accF += dt; if(accF>=1/24){ drawFlux(accF); accF=0; } }
   else if(scene==='night'){ accN += dt; if(accN>=1/24){ drawNight(accN); accN=0; } }
   else { accP += dt; if(accP>=1/SCENEFPS[scene]){ artFrame(scene, accP); accP=0; } }
   requestAnimationFrame(frame);
 }
-function resize(){ sizePixel(); sizeAurora(); sizeNight(); }
+function resize(){ sizePixel(); sizeAurora(); sizeNight(); sizeFlux(); }
 /* tamanho do relógio (guardado no aparelho) */
 function setClk(v){ document.documentElement.style.setProperty('--clk', v/100); $('clkLbl').textContent = `(${v}%)`; try{ localStorage.setItem('clk', v); }catch(e){} }
 $('clk').oninput = e => setClk(+e.target.value);
