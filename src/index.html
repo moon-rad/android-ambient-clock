@@ -29,6 +29,8 @@ canvas{position:absolute;left:0;top:0;display:block}
 #battFill{position:absolute;left:1px;top:1px;bottom:1px;width:50%;background:currentColor;border-radius:1px}
 body[data-scene=night] #batt{color:#ff9d57;opacity:.35;text-shadow:none}
 #cvPixel{image-rendering:pixelated}
+#cvAurora,#cvNight{width:100%;height:100%}
+#cvAurora{filter:contrast(1.12)}   /* esmaga o cinza residual do rastro: o fundo fica 100% preto */
 #clock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.5),0 0 20px rgba(0,0,0,.5);transition:transform 3s ease}
 #time{font-family:'Nunito','Inter',system-ui,sans-serif;font-size:calc(min(30vw,46vh) * var(--clk,.8));font-weight:200;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 #date{font-size:13px;font-weight:300;opacity:.85;margin-top:.6em}
@@ -74,6 +76,8 @@ label.chk{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15p
 <body data-scene="window">
 <div id="stage">
   <canvas id="cvPixel"></canvas>
+  <canvas id="cvAurora"></canvas>
+  <canvas id="cvNight"></canvas>
   <div id="clock">
     <div id="time"><span id="hh">00</span><span id="col">:</span><span id="mm">00</span></div>
     <div id="date"></div>
@@ -909,6 +913,98 @@ function drawSheep(c, e, st, ox, oy, dt){
   }
 }
 
+/* ---------- Cena: Aurora (partículas em campo de fluxo) ---------- */
+const cvAu = $('cvAurora'), au = cvAu.getContext('2d');
+let DPR = 1, PARTS = [], AT = 0;
+const APAL = [[265,55,.75,.62],[175,45,.8,.62],[55,95,.75,.58],[335,50,.85,.62],[205,70,.8,.60],[290,60,.8,.60]];  /* matiz inicial, amplitude, saturação, luz */
+const AP0 = Math.floor(Math.random()*APAL.length);
+function sizeAurora(){
+  DPR = Math.min(devicePixelRatio||1, 1.5);
+  cvAu.width = Math.round(innerWidth*DPR); cvAu.height = Math.round(innerHeight*DPR);
+  PARTS = Array.from({length:380},()=>({x:Math.random()*cvAu.width, y:Math.random()*cvAu.height, k:Math.random(), a:Math.random()*200}));
+  au.fillStyle='#000'; au.fillRect(0,0,cvAu.width,cvAu.height);
+}
+function drawAurora(dt){
+  AT += dt;
+  au.fillStyle = 'rgba(0,0,0,.14)'; au.fillRect(0,0,cvAu.width,cvAu.height);   /* fundo preto: o rastro some até o preto puro */
+  au.lineWidth = 1.4*DPR; au.lineCap = 'round';
+  // combinações de cores que se revezam devagar (troca suave a cada ~80 s)
+  const per = 80, ia = (AP0+Math.floor(AT/per))%APAL.length, ib = (ia+1)%APAL.length, tb = sstep(per-16,per,AT%per);
+  const gk = KINDS[WX.kind].g*.55;
+  const AB = [];
+  for(let i=0;i<8;i++){
+    const k = (i+.5)/8, A = APAL[ia], B = APAL[ib];
+    const ca = hsl2rgb((((A[0]+k*A[1])%360)+360)%360,A[2],A[3]), cb = hsl2rgb((((B[0]+k*B[1])%360)+360)%360,B[2],B[3]);
+    let col = mixC(ca,cb,tb);
+    col = mixC(col,[150,155,165],gk);
+    AB.push(rgb(col,.6));
+  }
+  for(const p of PARTS){
+    const x=p.x/DPR, y=p.y/DPR;
+    const a = (Math.sin(x*.0032+AT*.11)+Math.cos(y*.0041-AT*.08)+Math.sin((x+y)*.0021+AT*.05))*1.4;
+    const nx = p.x+Math.cos(a)*1.8*DPR, ny = p.y+Math.sin(a)*1.8*DPR;
+    au.strokeStyle = AB[(p.k*8)|0];
+    au.beginPath(); au.moveTo(p.x,p.y); au.lineTo(nx,ny); au.stroke();
+    p.x=nx; p.y=ny; p.a+=1;
+    if(p.x<0||p.y<0||p.x>cvAu.width||p.y>cvAu.height||p.a>200){ p.x=Math.random()*cvAu.width; p.y=Math.random()*cvAu.height; p.a=0; }
+  }
+}
+
+/* ---------- Cena: Noturno (céu estrelado dinâmico) ---------- */
+const cvNight = $('cvNight'), nc = cvNight.getContext('2d');
+let NDPR = 1, NSTARS = [], NITT = 0, SHOOT = null, nextShoot = 12, NEB = null, NEBR = 0;
+function sizeNight(){
+  NDPR = Math.min(devicePixelRatio||1, 2);
+  cvNight.width = Math.round(innerWidth*NDPR); cvNight.height = Math.round(innerHeight*NDPR);
+  const R = Math.hypot(cvNight.width,cvNight.height)/2, r = rng(11);
+  const n = Math.round(innerWidth*innerHeight/1500);
+  NSTARS = Array.from({length:n},()=>{
+    const big = r()>.85;
+    return { d: Math.sqrt(r())*R, a: r()*Math.PI*2, r: (big ? 1.9 : .8+r()*.7)*NDPR, sp: .35+r()*.75, ph: r()*6.28, k: r(), mx: .65+r()*.35 };
+  });
+  /* nebulosas bem fracas, pré-desenhadas; giram junto com o céu */
+  NEBR = R; const S = Math.ceil(R), cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), k = S/(2*R), rr = rng(23);
+  const cols = [[120,90,200],[70,120,210],[190,90,160],[90,170,200],[150,110,220]];
+  for(let i=0;i<7;i++){ const ang = rr()*Math.PI*2, dist = (.15+rr()*.75)*R, x = (R+Math.cos(ang)*dist)*k, y = (R+Math.sin(ang)*dist)*k, rad = (.28+rr()*.35)*R*k, col = cols[i%cols.length], a = .05+rr()*.05;
+    const gr = g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,`rgba(${col},${a.toFixed(3)})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0,0,S,S); }
+  NEB = cv;
+}
+function drawNight(dt){
+  NITT += dt;
+  const c = nc, W = cvNight.width, H = cvNight.height, cx = W/2, cy = H/2;
+  c.fillStyle = '#02030a'; c.fillRect(0,0,W,H);
+  const rot = NITT*.010; /* o céu gira bem devagar (uma volta a cada ~10 min); o centro um pouco mais rápido que a borda, como uma galáxia */
+  if(NEB){ c.save(); c.translate(cx,cy); c.rotate(rot*.9); c.drawImage(NEB,-NEBR,-NEBR,2*NEBR,2*NEBR); c.restore(); }
+  for(const s of NSTARS){
+    const ang = s.a+rot*(1.25-.5*Math.min(1,s.d/NEBR)), x = cx+Math.cos(ang)*s.d, y = cy+Math.sin(ang)*s.d;
+    if(x<-6||y<-6||x>W+6||y>H+6) continue;
+    const t = .5+.5*Math.sin(s.ph+NITT*s.sp);          /* acende e apaga suavemente */
+    const al = Math.pow(t,2)*s.mx+.06;
+    const col = s.k<.2 ? '255,214,170' : s.k>.75 ? '176,200,255' : '240,244,255';
+    c.fillStyle = `rgba(${col},${al.toFixed(3)})`;
+    c.beginPath(); c.arc(x,y,s.r,0,6.283); c.fill();
+    if(al>.6 && s.r>1.1*NDPR){ c.fillStyle = `rgba(${col},${(al*.14).toFixed(3)})`; c.beginPath(); c.arc(x,y,s.r*3.4,0,6.283); c.fill(); }
+  }
+  /* estrela cadente, rara */
+  nextShoot -= dt;
+  if(!SHOOT && nextShoot<=0){
+    const a = (.15+Math.random()*.35)*Math.PI;
+    SHOOT = { x:Math.random()*W*.8+W*.1, y:Math.random()*H*.4, vx:Math.cos(a)*W*.9*(Math.random()<.5?1:-1), vy:Math.sin(a)*W*.5, t:0, i:.45+Math.random()*.55 };
+    nextShoot = 18+Math.random()*27;
+  }
+  if(SHOOT){
+    SHOOT.t += dt; const T = .9;
+    if(SHOOT.t>T){ SHOOT = null; }
+    else {
+      const p = SHOOT.t/T, x = SHOOT.x+SHOOT.vx*p*.4, y = SHOOT.y+SHOOT.vy*p*.4, fade = Math.sin(p*Math.PI);
+      const g = c.createLinearGradient(x,y,x-SHOOT.vx*.06,y-SHOOT.vy*.06);
+      g.addColorStop(0,`rgba(255,255,255,${.7*fade*SHOOT.i})`); g.addColorStop(1,'rgba(255,255,255,0)');
+      c.strokeStyle = g; c.lineWidth = 1.4*NDPR; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x,y); c.lineTo(x-SHOOT.vx*.06,y-SHOOT.vy*.06); c.stroke();
+    }
+  }
+}
+
 /* ---------- Bateria (nível discreto no canto) ---------- */
 let BATT = null;
 function renderBatt(){
@@ -966,6 +1062,10 @@ function showHint(t){ const h=$('hint'); h.textContent=t; h.classList.add('on');
 function showGear(){ $('gear').classList.add('on'); clearTimeout(gearTimer); gearTimer=setTimeout(()=>$('gear').classList.remove('on'),4000); }
 function setScene(s, announce){
   scene = s; document.body.dataset.scene = s;
+  $('cvPixel').style.display = (s==='aurora'||s==='night') ? 'none' : 'block';
+  $('cvAurora').style.display = s==='aurora' ? 'block' : 'none';
+  $('cvNight').style.display = s==='night' ? 'block' : 'none';
+  if(s==='aurora'){ au.fillStyle='#000'; au.fillRect(0,0,cvAu.width,cvAu.height); }
   document.querySelectorAll('#rowScene .chip').forEach(b=>b.classList.toggle('sel',b.dataset.s===s));
   try{ localStorage.setItem('scene',s); }catch(e){}
   if(announce) showHint(sceneName(s));
@@ -1089,16 +1189,18 @@ $('stage').addEventListener('click', e => {
 setInterval(()=>{ const t = `translate(${Math.round((Math.random()-.5)*16)}px,${Math.round((Math.random()-.5)*16)}px)`; $('clock').style.transform = t; $('batt').style.transform = t; }, 60000);
 
 /* ---------- Loop ---------- */
-let last = performance.now(), accP = 0, accC = 0;
+let last = performance.now(), accP = 0, accA = 0, accN = 0, accC = 0;
 const SCENEFPS = {window:12, lofi:12, sala:12, vila:12, desert:12, night:24, aurora:30};
 function frame(ts){
   const dt = Math.min(.1,(ts-last)/1000); last = ts;
   accC += dt; if(accC>=.5){ accC=0; tickClock(); }
   if(XSCENES.includes(scene) && !xmasOn()) setScene('window',false);
-  accP += dt; if(accP>=1/SCENEFPS[scene]){ artFrame(scene, accP); accP=0; }
+  if(scene==='aurora'){ accA += dt; if(accA>=1/30){ drawAurora(accA); accA=0; } }
+  else if(scene==='night'){ accN += dt; if(accN>=1/24){ drawNight(accN); accN=0; } }
+  else { accP += dt; if(accP>=1/SCENEFPS[scene]){ artFrame(scene, accP); accP=0; } }
   requestAnimationFrame(frame);
 }
-function resize(){ sizePixel(); }
+function resize(){ sizePixel(); sizeAurora(); sizeNight(); }
 /* tamanho do relógio (guardado no aparelho) */
 function setClk(v){ document.documentElement.style.setProperty('--clk', v/100); $('clkLbl').textContent = `(${v}%)`; try{ localStorage.setItem('clk', v); }catch(e){} }
 $('clk').oninput = e => setClk(+e.target.value);
