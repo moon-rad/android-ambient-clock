@@ -986,9 +986,9 @@ function fxPal(q, gk){   /* q 0..1 → cor, esmaecida em direção ao cinza conf
 /* um traço = degradê contínuo: cauda transparente e fina → corpo na cor → cabeça mais clara e grossa */
 function fxSprites(gk){
   const SW = 128, SH = 16, out = [];
-  for(let ci=0;ci<10;ci++){
+  for(let ci=0;ci<20;ci++){
     const cv = document.createElement('canvas'); cv.width = SW; cv.height = SH;
-    const c = cv.getContext('2d'), col = fxPal(ci/10+.05, gk);
+    const c = cv.getContext('2d'), col = fxPal(ci/20+.025, gk);
     const hi = col.map(v => Math.min(255, v+35)|0), lo = col.map(v => v|0);
     const g = c.createLinearGradient(0,0,SW,0);
     g.addColorStop(0, `rgba(${lo[0]},${lo[1]},${lo[2]},0)`);
@@ -1012,7 +1012,7 @@ function sizeFlux(){
   const sp = FXMIN*.021, cols = Math.ceil(w/sp)+2, rows = Math.ceil(h/sp)+2;
   FXS = [];
   for(let r=-1;r<rows;r++) for(let c=-1;c<cols;c++){
-    FXS.push({x:(c+(r&1?.5:0)+(Math.random()-.5)*.8)*sp, y:(r+(Math.random()-.5)*.8)*sp, j:(Math.random()-.5)*.5, l:.75+Math.random()*.5, a:null, w:0, f:.8+Math.random()*.5, ph:Math.random()*6.283});
+    FXS.push({x:(c+(r&1?.5:0)+(Math.random()-.5)*.8)*sp, y:(r+(Math.random()-.5)*.8)*sp, j:(Math.random()-.5)*.2, l:.8+Math.random()*.4, a:null, w:0, f:1, ph:0});
   }
   fx.fillStyle='#000'; fx.fillRect(0,0,w,h);
 }
@@ -1032,18 +1032,18 @@ function drawFlux(dt){
     const wx = x + .07*Math.sin(y*6.5+t*.31) + .04*Math.cos(x*9-t*.23), wy = y + .07*Math.cos(x*5.5-t*.27) + .04*Math.sin(y*8+t*.19);
     let tg = Math.atan2(p.y-c1y,p.x-c1x)*.9 + Math.atan2(p.y-c2y,p.x-c2x)*.7 + 1.3*Math.sin(wx*5.2+t*.11) + 1.1*Math.cos(wy*5.6-t*.09) + 1.5 + p.j;
     /* ondas que viajam pelo campo: cada filamento balança como um tentáculo na correnteza */
-    tg += .2*Math.sin(wx*7 + wy*4 - t*.8*p.f + p.ph*.15) + .07*Math.sin(wy*11 - wx*4 + t*1.1 + p.ph);
+    tg += .2*Math.sin(wx*7 + wy*4 - t*.8) + .07*Math.sin(wy*9 - wx*4 + t*1.1 + wx*3);
     /* mola amortecida: o traço segue o fluxo com atraso e um leve vai-e-vem */
     if(p.a===null) p.a = tg;
     let d = tg - p.a; d = Math.atan2(Math.sin(d), Math.cos(d));
-    p.w += (d*5*p.f - p.w*3.2)*kd; p.a += p.w*kd;
+    p.w += (d*5*(.9+.2*Math.sin(wx*5+wy*3)) - p.w*3.2)*kd; p.a += p.w*kd;
     const a = p.a;
     const n = (Math.sin(wx*6.5-t*.07+1)+Math.cos(wy*7.2+t*.06)+Math.sin((wx-wy)*4.4+t*.045))/3;   /* -1..1: mancha de brilho */
     let v = (n+.62)/.95; v = v<0 ? 0 : v>1 ? 1 : v; v = v*v*(3-2*v);
     if(v<.015) continue;
     const q = (Math.sin(x*2.4+t*.04)+Math.cos(y*2.9-t*.033)+Math.sin((x+y)*1.7+t*.027))/3.4+.5;
-    const ci = ((((q%1)+1)%1)*10)|0;
-    const breath = 1 + .16*Math.sin(t*.8*p.f + p.ph);   /* o comprimento respira */
+    const ci = ((((q%1)+1)%1)*20)|0;
+    const breath = 1 + .16*Math.sin(t*.8 + wx*6 - wy*4);   /* o comprimento respira */
     const L = m*(.03+.075*v)*p.l*breath, th = Math.max(2.2*FXD, m*.0095);
     const ca = Math.cos(a), sa = Math.sin(a);
     fx.setTransform(ca, sa, -sa, ca, p.x, p.y);
