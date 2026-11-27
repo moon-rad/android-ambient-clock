@@ -650,11 +650,34 @@ function catSpot(art, orient, ox, oy){
   const p = SPRD.pos[`${art}_${orient}${(art==='janela'||art==='lofi'||art==='natal') ? '_dia' : ''}`];
   return p ? {cx:p.x+p.largura/2+ox, by:p.y+p.altura+oy, p} : null;
 }
-function catBlit(c, img, cx, by, fl, nt, clipY){
-  const t = tinted(img, nt), w = img.width, h = img.height, x = Math.round(cx-w/2), y = Math.round(by-h);
+function catBlit(c, img, cx, by, fl, nt, clipY, skipTop){
+  const t = tinted(img, nt), w = img.width, h = img.height, x = Math.round(cx-w/2), y = Math.round(by-h), sk = skipTop||0;
   if(clipY!==undefined){ c.save(); c.beginPath(); c.rect(0,0,PW,clipY); c.clip(); }
-  if(fl){ c.save(); c.translate(x+w,y); c.scale(-1,1); c.drawImage(t,0,0); c.restore(); } else c.drawImage(t,x,y);
+  if(fl){ c.save(); c.translate(x+w,y); c.scale(-1,1); c.drawImage(t,0,sk,w,h-sk,0,sk,w,h-sk); c.restore(); } else c.drawImage(t,0,sk,w,h-sk,x,y+sk,w,h-sk);
   if(clipY!==undefined) c.restore();
+}
+/* "Zzz" do gato dormindo: três Z em pixel art que sobem da cabeça, crescem e somem */
+const ZGLYPH = [
+  ['####','..#.','.#..','####'],
+  ['#####','...#.','..#..','.#...','#####'],
+  ['######','....#.','...#..','..#...','.#....','######']
+];
+function catZzz(c, cx, by, t){
+  const P = 6.6, hx = Math.round(cx-11)+4, hy = Math.round(by-14)+2;
+  c.save();
+  for(let i=0;i<3;i++){
+    const p = (((t/P) + i/3) % 1 + 1) % 1;
+    const g = ZGLYPH[p<.38 ? 0 : p<.72 ? 1 : 2];
+    const a = Math.min(1, p/.12) * Math.min(1, (1-p)/.28);
+    if(a<=.04) continue;
+    const x = hx + Math.round(p*9) + Math.round(Math.sin(p*9)*1.2), y = hy - Math.round(p*15) - g.length;
+    c.globalAlpha = Math.round(a*4)/4*.95;
+    for(let r=0;r<g.length;r++) for(let q=0;q<g[r].length;q++) if(g[r][q]==='#'){
+      c.fillStyle = (r===0 || r===g.length-1) ? '#f4f0ff' : '#d9d2f2';
+      c.fillRect(x+q, y+r, 1, 1);
+    }
+  }
+  c.restore();
 }
 /* sorteia o próximo ato de cada cena */
 function catPick(art){
@@ -708,7 +731,7 @@ function drawCatArt(c, art, A, st, ox, oy, dt){
     }
   }
   if(art==='lofi' || art==='natal'){
-    if(CAT.act==='dormindo'){ catBlit(c, animFrame('dormindo',tt), sp.cx, by, false, nt); return; }
+    if(CAT.act==='dormindo'){ catBlit(c, animFrame('dormindo',tt), sp.cx, by, false, nt, undefined, 4); catZzz(c, sp.cx, by, tt); return; }
     if(CAT.act==='brincando'){ catBlit(c, animFrame('brincando',tt), sp.cx, by, false, nt); return; }
     catBlit(c, animFrame(CAT.act, CAT.act==='limpando' ? tt : tt%animTotal(CAT.act)), sp.cx, by, false, nt); return;
   }
